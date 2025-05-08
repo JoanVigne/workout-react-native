@@ -12,12 +12,16 @@ import {
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from '@expo/vector-icons';
 import TimerDisplay from '../components/TimerDisplay';
+import { auth, db } from '../firebase';
+import { doc, updateDoc, getDoc } from 'firebase/firestore';
+import { useUser } from '../context/UserContext';
 
 export default function StartWorkoutScreen({ route, navigation }) {
   const { workout } = route.params;
   const [exerciseData, setExerciseData] = useState({});
   const [noteHeights, setNoteHeights] = useState({});
   const timerRef = useRef();
+  const { setWorkouts } = useUser();
 
   // Check if there are any unsaved changes
   const hasUnsavedChanges = () => {
@@ -109,7 +113,10 @@ export default function StartWorkoutScreen({ route, navigation }) {
 
   // Get last performance for an exercise
   const getLastPerformance = (exerciseId) => {
+
     if (!workout.perf || Object.keys(workout.perf).length === 0) return '';
+    
+    console.log('Available dates:', Object.keys(workout.perf));
     
     // Get dates in descending order
     const dates = Object.keys(workout.perf).sort((a, b) => new Date(b) - new Date(a));
@@ -170,6 +177,19 @@ export default function StartWorkoutScreen({ route, navigation }) {
   };
 
   const handleInputChange = (exerciseId, field, value) => {
+    // Handle notes separately
+    if (field === 'note') {
+      setExerciseData(prevData => ({
+        ...prevData,
+        [exerciseId]: {
+          ...prevData[exerciseId],
+          note: value
+        }
+      }));
+      return;
+    }
+
+    // Handle sets data (weight, reps, time)
     const [fieldType, setIndex] = field.split('_');
     setExerciseData(prevData => {
       const currentExerciseData = prevData[exerciseId] || {};
@@ -233,6 +253,8 @@ export default function StartWorkoutScreen({ route, navigation }) {
 
   // Initialize exercise data with sets from last performance
   useEffect(() => {
+    console.log('useEffect - workout:', workout);
+    console.log('useEffect - perf data:', workout.perf);
     const initialData = {};
     workout.exercices.forEach(exercise => {
       const setCount = getLastPerfSetCount(exercise.id);
@@ -455,9 +477,78 @@ export default function StartWorkoutScreen({ route, navigation }) {
 
         <TouchableOpacity 
           style={styles.finishButton}
-          onPress={() => {
-            // TODO: Save workout data
-            navigation.goBack();
+          onPress={async () => {
+            try {
+              const user = auth.currentUser;
+              if (!user) {
+                Alert.alert('Erreur', 'Vous devez être connecté pour sauvegarder un entraînement');
+                return;
+              }
+
+              // Format the workout data
+              const today = new Date().toISOString().split('T')[0];
+              const workoutRef = doc(db, 'workouts', user.uid);
+              
+              // Create the update object with the old format
+              const formattedData = {};
+              
+              Object.entries(exerciseData).forEach(([exerciseId, data], index) => {
+                const exercisePerf = {
+                  exoOrder: index.toString() // Add exoOrder starting from 0
+                };
+                
+                // Add note if exists
+                if (data.note) {
+                  exercisePerf.note = data.note;
+                }
+                
+                // Format sets data
+                if (data.sets) {
+                  Object.entries(data.sets).forEach(([setIndex, setData]) => {
+                    if (setData.reps) exercisePerf[`reps${setIndex}`] = setData.reps;
+                    if (setData.weight) exercisePerf[`weight${setIndex}`] = setData.weight;
+                    if (setData.time) exercisePerf[`interval${setIndex}`] = setData.time;
+                  });
+                }
+                
+                formattedData[exerciseId] = exercisePerf;
+              });
+              
+              const updateData = {
+                [`${workout.id}.perf.${today}`]: formattedData
+              };
+
+              // Save to Firebase
+              await updateDoc(workoutRef, updateData);
+
+              // Refresh context
+              const workoutsDoc = await getDoc(doc(db, 'workouts', user.uid));
+              if (workoutsDoc.exists()) {
+                const data = workoutsDoc.data();
+                const workoutList = Object.keys(data).map((key) => ({
+                  id: key,
+                  name: data[key].name || 'Sans nom',
+                  description: data[key].description || '',
+                  exercices: data[key].exercices || [],
+                  perf: data[key].perf || {},
+                  createdAt: data[key].createdAt,
+                  lastModified: data[key].lastModified
+                }));
+                setWorkouts(workoutList);
+              }
+
+              Alert.alert(
+                'Succès',
+                'Entraînement sauvegardé !',
+                [{ text: 'OK', onPress: () => navigation.goBack() }]
+              );
+            } catch (error) {
+              console.error('Erreur sauvegarde entraînement:', error);
+              Alert.alert(
+                'Erreur',
+                'Impossible de sauvegarder l\'entraînement. Veuillez réessayer.'
+              );
+            }
           }}
         >
           <Text style={styles.finishButtonText}>Terminer l'entraînement</Text>
