@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Modal,
   Keyboard,
+  Pressable,
 } from "react-native";
 import { auth, db } from "../firebase";
 import { doc, setDoc } from "firebase/firestore";
@@ -19,6 +20,16 @@ export default function CreateWorkoutForm({ visible, onCreated, onClose }) {
   const [description, setDescription] = useState("");
   const [exercises, setExercises] = useState([]);
   const [newExercise, setNewExercise] = useState("");
+  const [exerciseType, setExerciseType] = useState("muscu");
+  const [showTypeMenu, setShowTypeMenu] = useState(null); // Pour le menu déroulant
+
+  const exerciseTypes = [
+    { id: 'muscu', label: '💪 Muscu' },
+    { id: 'cardio', label: '🏃 Cardio' },
+    { id: 'hiit', label: '⚡ HIIT' },
+    { id: 'etirement', label: '🧘 Étirement' },
+    { id: 'poids', label: '⚖️ Poids libre' }
+  ];
 
   const exerciseInputRef = useRef(null);
 
@@ -32,7 +43,11 @@ export default function CreateWorkoutForm({ visible, onCreated, onClose }) {
 
     setExercises((prev) => [
       ...prev,
-      { id: exerciseId, name: newExercise.trim() },
+      { 
+        id: exerciseId, 
+        name: newExercise.trim(),
+        type: exerciseType // Ajout du type d'exercice
+      },
     ]);
 
     setNewExercise("");
@@ -152,6 +167,34 @@ export default function CreateWorkoutForm({ visible, onCreated, onClose }) {
 
           {exercises.map((item, index) => (
             <View key={`${item.id}_${index}`} style={styles.exerciseItemRow}>
+              <Pressable 
+                style={styles.typeSelector}
+                onPress={() => setShowTypeMenu(showTypeMenu === index ? null : index)}
+              >
+                <Text>{exerciseTypes.find(t => t.id === item.type)?.label || '💪 Muscu'}</Text>
+              </Pressable>
+
+              {showTypeMenu === index && (
+                <View style={styles.typeMenu}>
+                  {exerciseTypes.map((type) => (
+                    <Pressable
+                      key={type.id}
+                      style={styles.typeMenuItem}
+                      onPress={() => {
+                        setExercises(prev => prev.map((ex, i) => 
+                          i === index ? { ...ex, type: type.id } : ex
+                        ));
+                        setShowTypeMenu(null);
+                      }}
+                    >
+                      <Text style={[styles.typeMenuText, item.type === type.id && styles.typeMenuTextSelected]}>
+                        {type.label}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              )}
+
               <Text style={styles.exerciseItemText}>
                 {index + 1}. {item.name}
               </Text>
@@ -188,6 +231,66 @@ export default function CreateWorkoutForm({ visible, onCreated, onClose }) {
   );
 }
 const styles = StyleSheet.create({
+  typeSelector: {
+    backgroundColor: '#f0f0f0',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 15,
+    marginRight: 10,
+    minWidth: 100,
+  },
+  typeMenu: {
+    position: 'absolute',
+    left: 0,
+    top: '100%',
+    backgroundColor: 'white',
+    borderRadius: 10,
+    padding: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    zIndex: 1000,
+  },
+  typeMenuItem: {
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 5,
+  },
+  typeMenuText: {
+    fontSize: 14,
+    color: '#333',
+  },
+  typeMenuTextSelected: {
+    color: '#007AFF',
+    fontWeight: 'bold',
+  },
+  typeContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginVertical: 10,
+    paddingHorizontal: 20,
+  },
+  typeButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    backgroundColor: '#fff',
+  },
+  typeButtonActive: {
+    backgroundColor: '#007AFF',
+    borderColor: '#007AFF',
+  },
+  typeText: {
+    color: '#666',
+    fontSize: 14,
+  },
+  typeTextActive: {
+    color: '#fff',
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)", // foncé derrière

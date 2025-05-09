@@ -28,7 +28,25 @@ export default function LoginScreen({ navigation }) {
       Alert.alert("✅ Connexion réussie !");
       navigation.navigate("Home");
     } catch (error) {
-      Alert.alert("Erreur", error.message);
+      let message = "Une erreur est survenue. Veuillez réessayer.";
+      
+      switch (error.code) {
+        case 'auth/invalid-email':
+          message = "Format d'email invalide";
+          break;
+        case 'auth/user-not-found':
+        case 'auth/wrong-password':
+          message = "Email ou mot de passe incorrect";
+          break;
+        case 'auth/too-many-requests':
+          message = "Trop de tentatives. Veuillez réessayer plus tard";
+          break;
+        case 'auth/network-request-failed':
+          message = "Problème de connexion internet";
+          break;
+      }
+      
+      Alert.alert("Erreur", message);
     }
   };
 
