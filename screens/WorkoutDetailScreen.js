@@ -10,8 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 export default function WorkoutDetailScreen({ route }) {
   const { workout } = route.params;
-  console.log("Full workout object:", JSON.stringify(workout, null, 2));
-  console.log("Perf map:", workout.perf);
+
   if (workout.perf) {
     console.log("Perf dates:", Object.keys(workout.perf));
   }
@@ -213,21 +212,21 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   headerSection: {
-    padding: 20,
+    padding: 9,
     backgroundColor: "#f8f9fa",
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
     alignItems: "center",
   },
   section: {
-    padding: 20,
+    padding: 15,
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
   },
   title: {
     fontSize: 24,
     fontWeight: "bold",
-    marginTop: 20,
+    marginTop: 10,
     marginBottom: 8,
     textAlign: "center",
   },
@@ -247,8 +246,8 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: "600",
-    marginTop: 5,
-    marginBottom: 16,
+    marginTop: 0,
+    marginBottom: 10,
     color: "#333",
   },
   description: {
@@ -259,7 +258,7 @@ const styles = StyleSheet.create({
   exerciseItem: {
     flexDirection: "column",
     alignItems: "flex-start",
-    paddingVertical: 8,
+    paddingVertical: 4,
   },
   exerciseText: {
     fontSize: 16,
@@ -279,7 +278,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     gap: 10,
-    padding: 20,
+    padding: 10,
     flexWrap: "wrap",
   },
   button: {

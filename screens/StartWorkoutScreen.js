@@ -30,11 +30,11 @@ export default function StartWorkoutScreen({ route, navigation }) {
       if (!exercise?.sets) return false;
       return Object.values(exercise.sets).some(set => {
         const hasValue = Boolean(set.weight || set.reps || set.time);
-        console.log('Set values:', set, 'Has value:', hasValue);
+        
         return hasValue;
       });
     });
-    console.log('Has changes:', hasChanges);
+  
     return hasChanges;
   };
 
@@ -58,11 +58,7 @@ export default function StartWorkoutScreen({ route, navigation }) {
           style: 'destructive',
           onPress: () => {
             setExerciseData({});
-            navigation.dispatch(e => {
-              // Remove all events from the queue and just go back
-              const popAction = navigation.pop();
-              return popAction;
-            });
+            navigation.goBack();
           }
         }
       ]
@@ -82,16 +78,12 @@ export default function StartWorkoutScreen({ route, navigation }) {
   // Handle screen exit
   useEffect(() => {
     const unsubscribe = navigation.addListener('beforeRemove', (e) => {
-      if (!hasUnsavedChanges() || !exerciseData) {
-        return;
-      }
-
-      e.preventDefault();
-      handleNavigation();
+      // Ne plus bloquer la navigation
+      return;
     });
 
     return unsubscribe;
-  }, [navigation, exerciseData]);
+  }, [navigation]);
 
   // Show confirmation dialog
   const showConfirmDialog = () => {
@@ -115,9 +107,6 @@ export default function StartWorkoutScreen({ route, navigation }) {
   const getLastPerformance = (exerciseId) => {
 
     if (!workout.perf || Object.keys(workout.perf).length === 0) return '';
-    
-    console.log('Available dates:', Object.keys(workout.perf));
-    
     // Get dates in descending order
     const dates = Object.keys(workout.perf).sort((a, b) => new Date(b) - new Date(a));
     const lastDate = dates[0];
@@ -131,9 +120,11 @@ export default function StartWorkoutScreen({ route, navigation }) {
     const lastPerf = getLastPerformance(exerciseId);
     if (!lastPerf) return 1;
 
-    // Count the number of sets by looking at reps entries
+    // Count the number of sets by looking at weight, reps or time entries
     let setCount = 0;
-    while (lastPerf[`reps${setCount}`] !== undefined) {
+    while (lastPerf[`weight${setCount}`] !== undefined || 
+           lastPerf[`reps${setCount}`] !== undefined || 
+           lastPerf[`interval${setCount}`] !== undefined) {
       setCount++;
     }
     return setCount || 1;
@@ -253,8 +244,7 @@ export default function StartWorkoutScreen({ route, navigation }) {
 
   // Initialize exercise data with sets from last performance
   useEffect(() => {
-    console.log('useEffect - workout:', workout);
-    console.log('useEffect - perf data:', workout.perf);
+   
     const initialData = {};
     workout.exercices.forEach(exercise => {
       const setCount = getLastPerfSetCount(exercise.id);
@@ -318,6 +308,9 @@ export default function StartWorkoutScreen({ route, navigation }) {
                   keyboardType="numeric"
                   value={currentExerciseData.sets?.[setIndex]?.weight || ''}
                   onChangeText={(value) => handleInputChange(exercise.id, `weight_${setIndex}`, value)}
+                  autoComplete="off"
+                  textContentType="none"
+                  autoCorrect={false}
                 />
                 <TouchableOpacity 
                   style={styles.incrementButton}
@@ -354,6 +347,9 @@ export default function StartWorkoutScreen({ route, navigation }) {
                   keyboardType="numeric"
                   value={currentExerciseData.sets?.[setIndex]?.reps || ''}
                   onChangeText={(value) => handleInputChange(exercise.id, `reps_${setIndex}`, value)}
+                  autoComplete="off"
+                  textContentType="none"
+                  autoCorrect={false}
                 />
                 <TouchableOpacity 
                   style={styles.incrementButton}
@@ -372,6 +368,17 @@ export default function StartWorkoutScreen({ route, navigation }) {
             
             <View style={[styles.inputCell, styles.lastCell]}>
               <View style={styles.timeInputContainer}>
+                <TouchableOpacity 
+                  style={styles.copyButton}
+                  onPress={() => {
+                    const placeholderValue = getPlaceholder(exercise.id, setIndex, 'time');
+                    if (placeholderValue) {
+                      handleInputChange(exercise.id, `time_${setIndex}`, placeholderValue);
+                    }
+                  }}
+                >
+                  <Text style={styles.copyButtonText}>=</Text>
+                </TouchableOpacity>
                 <TextInput
                   style={styles.input}
                   placeholder={getPlaceholder(exercise.id, setIndex, 'time')}
@@ -382,6 +389,11 @@ export default function StartWorkoutScreen({ route, navigation }) {
                     // Store the display value (e.g., "1.3")
                     handleInputChange(exercise.id, `time_${setIndex}`, value);
                   }}
+                  autoComplete="off"
+                  textContentType="none"
+                  autoCorrect={false}
+                  spellCheck={false}
+                  dataDetectorTypes="none"
                 />
                 <TouchableOpacity 
                   style={styles.playButton}
@@ -477,78 +489,100 @@ export default function StartWorkoutScreen({ route, navigation }) {
 
         <TouchableOpacity 
           style={styles.finishButton}
-          onPress={async () => {
-            try {
-              const user = auth.currentUser;
-              if (!user) {
-                Alert.alert('Erreur', 'Vous devez être connecté pour sauvegarder un entraînement');
-                return;
-              }
+          onPress={() => {
+            Alert.alert(
+              'Terminer l\'entraînement',
+              'Avez-vous fini l\'entraînement ?',
+              [
+                { text: 'Non', style: 'cancel' },
+                { 
+                  text: 'Oui', 
+                  style: 'default', 
+                  onPress: async () => {
+                    try {
+                      const user = auth.currentUser;
+                      if (!user) {
+                        Alert.alert('Erreur', 'Vous devez être connecté pour sauvegarder un entraînement');
+                        return;
+                      }
 
-              // Format the workout data
-              const today = new Date().toISOString().split('T')[0];
-              const workoutRef = doc(db, 'workouts', user.uid);
-              
-              // Create the update object with the old format
-              const formattedData = {};
-              
-              Object.entries(exerciseData).forEach(([exerciseId, data], index) => {
-                const exercisePerf = {
-                  exoOrder: index.toString() // Add exoOrder starting from 0
-                };
-                
-                // Add note if exists
-                if (data.note) {
-                  exercisePerf.note = data.note;
+                      // Format the workout data
+                      const today = new Date().toISOString().split('T')[0];
+                      const workoutRef = doc(db, 'workouts', user.uid);
+                      
+                      // Create the update object with the old format
+                      const formattedData = {};
+                      
+                      Object.entries(exerciseData).forEach(([exerciseId, data], index) => {
+                        const exercisePerf = {
+                          exoOrder: index.toString() // Add exoOrder starting from 0
+                        };
+                        
+                        // Add note if exists
+                        if (data.note) {
+                          exercisePerf.note = data.note;
+                        }
+                        
+                        // Format sets data
+                        if (data.sets) {
+                          Object.entries(data.sets).forEach(([setIndex, setData]) => {
+                            if (setData.reps) exercisePerf[`reps${setIndex}`] = setData.reps;
+                            if (setData.weight) exercisePerf[`weight${setIndex}`] = setData.weight;
+                            if (setData.time) exercisePerf[`interval${setIndex}`] = setData.time;
+                          });
+                        }
+                        
+                        formattedData[exerciseId] = exercisePerf;
+                      });
+                      
+                      const updateData = {
+                        [`${workout.id}.perf.${today}`]: formattedData
+                      };
+
+                      // Save to Firebase
+                      await updateDoc(workoutRef, updateData);
+
+                      // Refresh context
+                      const workoutsDoc = await getDoc(doc(db, 'workouts', user.uid));
+                      if (workoutsDoc.exists()) {
+                        const data = workoutsDoc.data();
+                        const workoutList = Object.keys(data).map((key) => ({
+                          id: key,
+                          name: data[key].name || 'Sans nom',
+                          description: data[key].description || '',
+                          exercices: data[key].exercices || [],
+                          perf: data[key].perf || {},
+                          createdAt: data[key].createdAt,
+                          lastModified: data[key].lastModified
+                        }));
+                        setWorkouts(workoutList);
+                      }
+
+                      // Calculer les statistiques de l'entraînement
+                      const stats = {
+                        duration: '1h 30min', // À implémenter : calcul réel de la durée
+                        exerciseCount: workout.exercices.length,
+                        totalSets: Object.values(exerciseData).reduce((total, exercise) => {
+                          return total + (exercise.sets ? Object.keys(exercise.sets).length : 0);
+                        }, 0)
+                      };
+
+                      // Si tout s'est bien passé, naviguer vers TrainingOver
+                      navigation.reset({
+                        index: 0,
+                        routes: [{ name: 'TrainingOver', params: { workoutData: stats } }],
+                      });
+                    } catch (error) {
+                      console.error('Erreur sauvegarde entraînement:', error);
+                      Alert.alert(
+                        'Erreur',
+                        'Impossible de sauvegarder l\'entraînement. Veuillez réessayer.'
+                      );
+                    }
+                  }
                 }
-                
-                // Format sets data
-                if (data.sets) {
-                  Object.entries(data.sets).forEach(([setIndex, setData]) => {
-                    if (setData.reps) exercisePerf[`reps${setIndex}`] = setData.reps;
-                    if (setData.weight) exercisePerf[`weight${setIndex}`] = setData.weight;
-                    if (setData.time) exercisePerf[`interval${setIndex}`] = setData.time;
-                  });
-                }
-                
-                formattedData[exerciseId] = exercisePerf;
-              });
-              
-              const updateData = {
-                [`${workout.id}.perf.${today}`]: formattedData
-              };
-
-              // Save to Firebase
-              await updateDoc(workoutRef, updateData);
-
-              // Refresh context
-              const workoutsDoc = await getDoc(doc(db, 'workouts', user.uid));
-              if (workoutsDoc.exists()) {
-                const data = workoutsDoc.data();
-                const workoutList = Object.keys(data).map((key) => ({
-                  id: key,
-                  name: data[key].name || 'Sans nom',
-                  description: data[key].description || '',
-                  exercices: data[key].exercices || [],
-                  perf: data[key].perf || {},
-                  createdAt: data[key].createdAt,
-                  lastModified: data[key].lastModified
-                }));
-                setWorkouts(workoutList);
-              }
-
-              Alert.alert(
-                'Succès',
-                'Entraînement sauvegardé !',
-                [{ text: 'OK', onPress: () => navigation.goBack() }]
-              );
-            } catch (error) {
-              console.error('Erreur sauvegarde entraînement:', error);
-              Alert.alert(
-                'Erreur',
-                'Impossible de sauvegarder l\'entraînement. Veuillez réessayer.'
-              );
-            }
+              ]
+            );
           }}
         >
           <Text style={styles.finishButtonText}>Terminer l'entraînement</Text>

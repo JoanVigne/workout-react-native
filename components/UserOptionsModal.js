@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Modal, View, Text, TextInput, StyleSheet, Alert } from "react-native";
+import { useNavigation } from "@react-navigation/native";
 import {
   signOut,
   EmailAuthProvider,
@@ -7,17 +8,33 @@ import {
   deleteUser,
 } from "firebase/auth";
 import { auth, db } from "../firebase";
-import { doc, deleteDoc, updateDoc } from "firebase/firestore";
+import { doc, deleteDoc, updateDoc, getDoc } from "firebase/firestore";
 import { updatePassword } from "firebase/auth";
 import CloseButton from "../components/ui/CloseButton";
 import ActionButton from "../components/ui/ActionButton"; // Importer le composant Button
 import { useUser } from "../context/UserContext";
 
 export default function UserOptionsModal({ visible, onClose, onLogout }) {
+  const navigation = useNavigation();
   const [newNickname, setNewNickname] = useState("");
   const [password, setPassword] = useState("");
   const userConnected = auth.currentUser;
   const { user, nickname, workouts, loading } = useUser();
+  const [userRole, setUserRole] = useState(null);
+
+  // Fetch user role
+  React.useEffect(() => {
+    const fetchUserRole = async () => {
+      if (userConnected) {
+        const userDoc = await doc(db, "users", userConnected.uid);
+        const userSnap = await getDoc(userDoc);
+        if (userSnap.exists()) {
+          setUserRole(userSnap.data().role);
+        }
+      }
+    };
+    fetchUserRole();
+  }, [userConnected]);
   const emailUser = user && user.email;
 
   const handleChangeNickname = async () => {
@@ -98,8 +115,17 @@ export default function UserOptionsModal({ visible, onClose, onLogout }) {
       <View style={styles.container}>
         <CloseButton onPress={onClose} />
         <Text style={styles.title}>Options utilisateur</Text>
+        <ActionButton
+          title={(!userRole || userRole === 'free') ? 'Plan free, upgrade?' : `Plan ${userRole}`}
+          onPress={() => {
+            onClose();
+            navigation.navigate('Subscription');
+          }}
+          variant={userRole === 'premium' ? 'warning' : userRole === 'admin' ? 'primary' : 'success'}
+        />
         <Text style={styles.email}>{emailUser}</Text>
         <Text style={styles.email}>{nickname}</Text>
+      
         <TextInput
           placeholder="Nouveau pseudo"
           value={newNickname}

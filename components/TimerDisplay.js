@@ -18,6 +18,7 @@ import { Audio } from 'expo-av';
 const TimerDisplay = forwardRef((props, ref) => {
   const [isRunning, setIsRunning] = useState(false);
   const [timeLeft, setTimeLeft] = useState('');
+  const [isTimerMode, setIsTimerMode] = useState(true); // true = compte à rebours, false = chronomètre
   const [isEditing, setIsEditing] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [selectedSound, setSelectedSound] = useState('START');
@@ -85,43 +86,61 @@ const TimerDisplay = forwardRef((props, ref) => {
   };
 
   const parseTimeInput = (text) => {
-    // Permet uniquement les chiffres et les ":"
-    const cleaned = text.replace(/[^\d:]/g, '');
+    // Nettoie l'entrée pour ne garder que les chiffres
+    const numbers = text.replace(/[^0-9]/g, '');
     
-    if (cleaned.includes(':')) {
-      // Format MM:SS
-      const [minutes, seconds] = cleaned.split(':');
-      if (minutes && seconds) {
-        const mins = parseInt(minutes.slice(-2));
-        const secs = parseInt(seconds.slice(-2));
-        if (!isNaN(mins) && !isNaN(secs) && secs < 60) {
-          return (mins * 60 + secs).toString();
-        }
-      }
-    } else {
-      // Format direct en secondes ou MMSS
-      const numbers = cleaned.replace(/[^0-9]/g, '');
-      if (numbers.length <= 2) {
-        // Considéré comme secondes
+    // Si vide, retourne 0
+    if (!numbers) return '0';
+    
+    // Format automatique selon la longueur
+    switch (numbers.length) {
+      case 1: // 0-9 secondes
         return numbers;
-      } else if (numbers.length <= 4) {
-        // Format MMSS
-        const mins = parseInt(numbers.slice(0, -2));
-        const secs = parseInt(numbers.slice(-2));
-        if (secs < 60) {
-          return (mins * 60 + secs).toString();
+      case 2: // 00-99 secondes
+        return numbers;
+      case 3: // 1-9 minutes + 00-99 secondes
+        const m3 = numbers[0];
+        const s3 = numbers.slice(1);
+        if (parseInt(s3) < 60) {
+          return (parseInt(m3) * 60 + parseInt(s3)).toString();
         }
-      }
+        return timeLeft;
+      case 4: // 00-99 minutes + 00-99 secondes
+        const m4 = numbers.slice(0, 2);
+        const s4 = numbers.slice(2);
+        if (parseInt(s4) < 60) {
+          return (parseInt(m4) * 60 + parseInt(s4)).toString();
+        }
+        return timeLeft;
+      case 5: // 100-999 minutes + 00-99 secondes
+        const m5 = numbers.slice(0, 3);
+        const s5 = numbers.slice(3);
+        if (parseInt(s5) < 60) {
+          return (parseInt(m5) * 60 + parseInt(s5)).toString();
+        }
+        return timeLeft;
+      default:
+        return timeLeft;
     }
-    return timeLeft; // Garde l'ancienne valeur si invalide
   };
 
   const handleTimeInput = (text) => {
-    setInputValue(text);
-    const newTime = parseTimeInput(text);
-    if (newTime !== timeLeft) {
-      setTimeLeft(newTime);
+    // Nettoie l'entrée pour ne garder que les chiffres
+    const cleanText = text.replace(/[^0-9]/g, '');
+    
+    // Format l'affichage pour l'utilisateur
+    if (cleanText.length > 2) {
+      const minutes = cleanText.slice(0, -2);
+      const seconds = cleanText.slice(-2);
+      setInputValue(`${minutes}:${seconds}`);
+    } else {
+      setInputValue(cleanText);
     }
+    
+    // Met à jour le timer immédiatement
+    const newTime = parseTimeInput(cleanText);
+    setTimeLeft(newTime);
+    setIsTimerMode(true);
   };
 
   const handleFocus = () => {
@@ -162,15 +181,40 @@ const TimerDisplay = forwardRef((props, ref) => {
   };
 
   const resetTimer = () => {
-    setTimeLeft('');
+    setTimeLeft('0');
+    setInputValue('00:00');
     setIsRunning(false);
-    setIsEditing(true);
+    setIsEditing(true); // Permettre l'édition après un reset
+    setIsTimerMode(true); // Retour au mode timer par défaut
   };
 
   const toggleTimer = () => {
-    if (timeLeft && parseInt(timeLeft) > 0) {
+    // Fermer le clavier si on est en mode édition
+    if (isEditing) {
       setIsEditing(false);
-      setIsRunning(!isRunning);
+    }
+
+    if (isRunning) {
+      // Si on fait pause, on garde juste l'état actuel
+      setIsRunning(false);
+    } else {
+      // Si on appuie sur play
+      if (!isTimerMode && (timeLeft === '0' || timeLeft === '' || timeLeft === '00:00')) {
+        // Déjà en mode chronomètre et timer à 0, on continue en chronomètre
+        setTimeLeft('0');
+        setIsRunning(true);
+        playSound();
+      } else if (timeLeft === '0' || timeLeft === '' || timeLeft === '00:00') {
+        // Timer à 0 et pas en mode chronomètre, on démarre le chronomètre
+        setIsTimerMode(false);
+        setTimeLeft('0');
+        setIsRunning(true);
+        playSound();
+      } else {
+        // Une valeur est présente, on continue avec le mode actuel
+        setIsRunning(true);
+        playSound();
+      }
     }
   };
 
@@ -184,28 +228,43 @@ const TimerDisplay = forwardRef((props, ref) => {
 
   useEffect(() => {
     let interval;
-    if (isRunning && parseInt(timeLeft) > 0) {
-      interval = setInterval(() => {
-        setTimeLeft(prev => {
-          const newTime = parseInt(prev) - 1;
-          
-          // Son de compte à rebours sans vibration
-          if (countdownSoundEnabled && newTime <= 3 && newTime > 0) {
-            playSound('SELECT', 0.1, false); // Volume réduit à 10%
-          }
-          
-          if (newTime <= 0) {
-            setIsRunning(false);
-            setIsEditing(true);
-            playSound(); // Son final avec vibration
-            if (props.onTimerComplete) {
-              props.onTimerComplete();
+    if (isRunning) {
+      if (!isTimerMode) {
+        // Mode chronomètre
+        interval = setInterval(() => {
+          setTimeLeft(prevTime => {
+            const currentSeconds = parseInt(prevTime) || 0;
+            return (currentSeconds + 1).toString();
+          });
+        }, 1000);
+      } else if (parseInt(timeLeft) > 0) {
+        // Mode timer
+        interval = setInterval(() => {
+          setTimeLeft(prev => {
+            const newTime = parseInt(prev) - 1;
+            if (newTime <= 0) {
+              setIsRunning(false);
+              playSound(selectedSound, soundVolume, true);
+              if (props.onTimerComplete) {
+                props.onTimerComplete();
+              }
+              return '0';
             }
-            return '0';
-          }
-          return newTime.toString();
-        });
-      }, 1000);
+
+            // Jouer un son pour les 3 dernières secondes si activé
+            if (countdownSoundEnabled && newTime <= 3) {
+              playSound('POP', soundVolume * 0.5, false);
+            }
+
+            // Vibrer à chaque seconde pendant les 3 dernières secondes
+            if (newTime <= 3) {
+              Vibration.vibrate(100);
+            }
+
+            return newTime.toString();
+          });
+        }, 1000);
+      }
     }
     return () => clearInterval(interval);
   }, [isRunning, timeLeft, countdownSoundEnabled]);
@@ -215,14 +274,14 @@ const TimerDisplay = forwardRef((props, ref) => {
       return (
         <TextInput
           style={styles.input}
-          keyboardType="numeric"
+          keyboardType="number-pad"
           value={inputValue || formatTimeString(timeLeft)}
           onChangeText={handleTimeInput}
           onFocus={handleFocus}
-          onBlur={handleBlur}
           placeholder="00:00"
           maxLength={5}
           selectTextOnFocus={true}
+          editable={true}
         />
       );
     }
@@ -245,19 +304,17 @@ const TimerDisplay = forwardRef((props, ref) => {
           style={styles.resetButton}
           onPress={resetTimer}
         >
-          <Ionicons name="refresh" size={20} color="#666" />
+          <Ionicons name="refresh" size={28} color="#34495e" />
         </TouchableOpacity>
-
         {renderDisplay()}
-
         <TouchableOpacity 
-          style={styles.playButton}
+          style={[styles.playButton, isRunning ? styles.playButtonActive : null]}
           onPress={toggleTimer}
         >
           <Ionicons 
             name={isRunning ? "pause" : "play"} 
-            size={20} 
-            color={isRunning ? "#FF6B6B" : "#4CAF50"} 
+            size={28} 
+            color={isRunning ? "#e74c3c" : "#27ae60"}
           />
         </TouchableOpacity>
       </View>
@@ -344,20 +401,36 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#f5f5f5',
+    padding: 6,
+    paddingVertical: 2,
+    borderRadius: 16,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 5,
   },
   controlsContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginBottom: 5,
+    alignItems: 'center',
+    width: '100%',
+    paddingHorizontal: 6,
+    marginBottom: 2,
   },
   timerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 1,
-    paddingHorizontal: 5,
+    justifyContent: 'center',
     backgroundColor: '#fff',
-    borderRadius: 8,
+    borderRadius: 12,
+    paddingVertical: 2,
+    paddingHorizontal: 12,
+    minWidth: 180,
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
@@ -365,34 +438,52 @@ const styles = StyleSheet.create({
     },
     shadowOpacity: 0.1,
     shadowRadius: 3,
-    elevation: 3,
+    elevation: 2,
   },
   input: {
-    fontSize: 58,
-    fontWeight: 'bold',
-    minWidth: 80,
+    fontFamily: 'System',
+    fontSize: 48,
+    fontWeight: '600',
+    minWidth: 140,
     textAlign: 'center',
-    color: '#333',
+    color: '#2c3e50',
     padding: 0,
+    letterSpacing: 2,
   },
   timerText: {
-    fontSize: 58,
-    fontWeight: 'bold',
-    minWidth: 80,
+    fontFamily: 'System',
+    fontSize: 48,
+    fontWeight: '600',
+    minWidth: 140,
     textAlign: 'center',
-    color: '#333',
+    color: '#2c3e50',
     padding: 0,
+    letterSpacing: 2,
   },
   resetButton: {
-    marginRight: 10,
-    padding: 3,
+    backgroundColor: '#f8f9fa',
+    padding: 12,
+    borderRadius: 12,
+    marginRight: 15,
   },
   playButton: {
-    marginLeft: 10,
-    padding: 3,
+    backgroundColor: '#f8f9fa',
+    padding: 12,
+    borderRadius: 12,
+    marginLeft: 15,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  playButtonActive: {
+    backgroundColor: '#fee2e2',
+    borderColor: '#e74c3c',
   },
   soundButton: {
-    padding: 3,
+    padding: 4,
+    height: 32,
+    width: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   modalOverlay: {
     flex: 1,

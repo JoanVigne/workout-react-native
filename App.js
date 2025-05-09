@@ -10,6 +10,8 @@ import RegisterScreen from "./screens/RegisterScreen";
 import LoadingScreen from "./screens/LoadingScreen";
 import WorkoutDetailScreen from "./screens/WorkoutDetailScreen";
 import StartWorkoutScreen from "./screens/StartWorkoutScreen";
+import SubscriptionScreen from "./screens/SubscriptionScreen";
+import TrainingOver from "./screens/TrainingOver";
 
 const Stack = createNativeStackNavigator();
 
@@ -24,6 +26,8 @@ export default function App() {
           <Stack.Screen name="Register" component={RegisterScreen} />
           <Stack.Screen name="WorkoutDetail" component={WorkoutDetailScreen} />
           <Stack.Screen name="StartWorkout" component={StartWorkoutScreen} />
+          <Stack.Screen name="Subscription" component={SubscriptionScreen} />
+          <Stack.Screen name="TrainingOver" component={TrainingOver} />
         </Stack.Navigator>
       </NavigationContainer>
     </UserProvider>

@@ -35,6 +35,7 @@ export default function RegisterScreen({ navigation }) {
         nickname: nickname,
         email: user.email,
         createdAt: new Date(),
+        role: "free", 
       });
 
       // Afficher un message de succès
