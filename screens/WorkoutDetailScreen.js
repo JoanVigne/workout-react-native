@@ -6,10 +6,14 @@ import removeFromWorkouts from "../firebase_functions/remove_workout";
 import { useUser } from "../context/UserContext";
 import ModifyWorkoutForm from "../components/ModifyWorkoutForm";
 import PerformanceTable from "../components/PerformanceTable";
+import ExerciseType from "../components/ExerciseType";
 import { Ionicons } from '@expo/vector-icons';
 
 export default function WorkoutDetailScreen({ route }) {
   const { workout } = route.params;
+
+  console.log("Workout complet:", workout);
+  console.log("Type d'exercice:", workout.type);
 
   if (workout.perf) {
     console.log("Perf dates:", Object.keys(workout.perf));
@@ -81,8 +85,9 @@ export default function WorkoutDetailScreen({ route }) {
         >
           <Ionicons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
-        <View style={styles.titleContainer}>
+        <View style={styles.header}>
           <Text style={styles.headerTitle}>{workout.name}</Text>
+          {workout.type && <ExerciseType type={workout.type} />}
         </View>
         <View style={styles.backButtonPlaceholder} />
       </View>
@@ -138,9 +143,12 @@ export default function WorkoutDetailScreen({ route }) {
         {workout.exercices && workout.exercices.length > 0 ? (
           workout.exercices.map((exercise, index) => (
             <View key={exercise.id} style={styles.exerciseItem}>
-              <Text style={styles.exerciseText}>
-                {index + 1}. {exercise.name}
-              </Text>
+              <View style={styles.exerciseHeader}>
+                <Text style={styles.exerciseText}>
+                  {index + 1}. {exercise.name}
+                </Text>
+                {exercise.type && <ExerciseType type={exercise.type} />}
+              </View>
               {exercise.description && (
                 <Text style={styles.exerciseDescription}>
                   {exercise.description}
@@ -210,6 +218,24 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#333',
+  },
+  exerciseItem: {
+    marginBottom: 10,
+    padding: 10,
+    backgroundColor: "#f8f8f8",
+    borderRadius: 8,
+  },
+  exerciseHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 5,
+    width: '100%',
+  },
+  exerciseText: {
+    flex: 1,
+    marginRight: 10,
+    fontSize: 16,
   },
   headerSection: {
     padding: 9,
