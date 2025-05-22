@@ -182,10 +182,16 @@ export default function CardioExercise({ exercise, onUpdateExercise }) {
         </View>
       ))}
 
-      <TouchableOpacity onPress={addSet} style={styles.addButton}>
-        <Ionicons name="add-circle-outline" size={24} color="blue" />
-        <Text style={styles.addButtonText}>Ajouter une série</Text>
-      </TouchableOpacity>
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity onPress={addSet} style={styles.roundButton}>
+          <Text style={styles.buttonText}>+ Ajouter une série</Text>
+        </TouchableOpacity>
+        {sets.length > 1 && (
+          <TouchableOpacity onPress={removeSet} style={[styles.roundButton, styles.removeRoundButton]}>
+            <Text style={[styles.buttonText, styles.removeButtonText]}>- Supprimer la dernière série</Text>
+          </TouchableOpacity>
+        )}
+      </View>
     </View>
   );
 }
@@ -254,18 +260,28 @@ const styles = StyleSheet.create({
   timerButton: {
     padding: 4,
   },
-  addButton: {
+  buttonContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 8,
-    backgroundColor: '#f0f0f0',
-    borderRadius: 8,
-    marginTop: 8,
+    justifyContent: 'space-between',
+    marginTop: 2,
+    marginBottom: 4,
   },
-  addButtonText: {
-    marginLeft: 8,
-    color: 'blue',
-    fontSize: 16,
+  roundButton: {
+    backgroundColor: '#2196F3',
+    padding: 4,
+    borderRadius: 4,
+    flex: 1,
+    marginHorizontal: 2,
+    alignItems: 'center',
+  },
+  removeRoundButton: {
+    backgroundColor: '#FF6B6B',
+  },
+  buttonText: {
+    color: 'white',
+    fontSize: 14,
+  },
+  removeButtonText: {
+    color: 'white',
   },
 });

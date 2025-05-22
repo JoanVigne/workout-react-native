@@ -693,7 +693,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 10,
     marginTop: 0,
-    height: 40,
+    minHeight: 40,
+    paddingVertical: 8,
   },
   headerLeft: {
     width: 50,
@@ -702,6 +703,9 @@ const styles = StyleSheet.create({
   headerCenter: {
     flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
   },
   headerRight: {
     width: 50,
@@ -710,6 +714,8 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     textAlign: 'center',
+    flexWrap: 'wrap',
+    lineHeight: 22,
   },
   closeButton: {
     padding: 8,
