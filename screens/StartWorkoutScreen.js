@@ -16,8 +16,9 @@ import TimerDisplay from '../components/TimerDisplay';
 import { auth, db } from '../firebase';
 import { doc, updateDoc, getDoc } from 'firebase/firestore';
 import { useUser } from '../context/UserContext';
-import EtirementExercise from '../components/type_exercices/Etirement';
-
+import CardioExercise from '../components/type_exercices/Cardio';
+import EtirementExercise from "../components/type_exercices/Etirement";
+import HiitExercise from "../components/type_exercices/Hiit";
 export default function StartWorkoutScreen({ route, navigation }) {
   const [workout, setWorkout] = useState(route.params.workout);
 
@@ -514,6 +515,42 @@ export default function StartWorkoutScreen({ route, navigation }) {
                   newExerciseData[exercise.id] = {
                     ...newExerciseData[exercise.id],
                     sets: updatedExercise.sets
+                  };
+                  setExerciseData(newExerciseData);
+                }}
+              />
+            ) : exercise.type === 'cardio' ? (
+              <CardioExercise 
+                exercise={{
+                  ...exercise,
+                  sets: exerciseData[exercise.id]?.sets || [],
+                  lastPerformance: {
+                    sets: []
+                  }
+                }}
+                onUpdateExercise={(updatedExercise) => {
+                  const newExerciseData = { ...exerciseData };
+                  newExerciseData[exercise.id] = {
+                    ...newExerciseData[exercise.id],
+                    sets: updatedExercise.sets
+                  };
+                  setExerciseData(newExerciseData);
+                }}
+              />
+            ) : exercise.type === 'hiit' ? (
+              <HiitExercise
+                exercise={{
+                  ...exercise,
+                  rounds: exerciseData[exercise.id]?.rounds || [],
+                  lastPerformance: {
+                    rounds: []
+                  }
+                }}
+                onUpdateExercise={(updatedExercise) => {
+                  const newExerciseData = { ...exerciseData };
+                  newExerciseData[exercise.id] = {
+                    ...newExerciseData[exercise.id],
+                    rounds: updatedExercise.rounds
                   };
                   setExerciseData(newExerciseData);
                 }}

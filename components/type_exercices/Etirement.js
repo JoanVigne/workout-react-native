@@ -94,7 +94,7 @@ export default function EtirementExercise({ exercise, onUpdateExercise }) {
           </View>
           <Text style={[styles.tableHeader, styles.inputCell]}>Poids</Text>
           <Text style={[styles.tableHeader, styles.inputCell]}>Temps</Text>
-          <Text style={[styles.tableHeader, styles.inputCell, styles.lastCell]}>Time</Text>
+          <Text style={[styles.tableHeader, styles.inputCell, styles.lastCell]}>Repos</Text>
         </View>
 
         {/* Lignes du tableau */}
@@ -210,17 +210,17 @@ export default function EtirementExercise({ exercise, onUpdateExercise }) {
 const styles = StyleSheet.create({
   container: {
     backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 10,
-    marginVertical: 5,
+    borderRadius: 4,
+    padding: 2,
+    marginVertical: 1,
   },
   tableContainer: {
-    marginTop: 10,
+    marginTop: 2,
   },
   tableRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 2,
   },
   tableHeader: {
     fontSize: 14,
