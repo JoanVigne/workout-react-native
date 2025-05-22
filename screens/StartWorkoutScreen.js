@@ -16,9 +16,21 @@ import TimerDisplay from '../components/TimerDisplay';
 import { auth, db } from '../firebase';
 import { doc, updateDoc, getDoc } from 'firebase/firestore';
 import { useUser } from '../context/UserContext';
+import EtirementExercise from '../components/type_exercices/Etirement';
 
 export default function StartWorkoutScreen({ route, navigation }) {
-  const { workout } = route.params;
+  const [workout, setWorkout] = useState(route.params.workout);
+
+  // Convertir les dates en chaînes ISO pour éviter les problèmes de sérialisation
+  useEffect(() => {
+    if (route.params.workout) {
+      setWorkout({
+        ...route.params.workout,
+        lastModified: route.params.workout.lastModified?.toISOString?.() || route.params.workout.lastModified,
+        createdAt: route.params.workout.createdAt?.toISOString?.() || route.params.workout.createdAt
+      });
+    }
+  }, [route.params.workout]);
   const [exerciseData, setExerciseData] = useState({});
   const [noteHeights, setNoteHeights] = useState({});
   const timerRef = useRef();
@@ -487,7 +499,28 @@ export default function StartWorkoutScreen({ route, navigation }) {
                 />
               </View>
             </View>
-            {renderExerciseSets(exercise)}
+            {exercise.type === 'etirement' ? (
+              <EtirementExercise 
+                exercise={{
+                  ...exercise,
+                  sets: exerciseData[exercise.id]?.sets || [],
+                  // On envoie un objet vide si pas de lastPerformance
+                  lastPerformance: {
+                    sets: []
+                  }
+                }}
+                onUpdateExercise={(updatedExercise) => {
+                  const newExerciseData = { ...exerciseData };
+                  newExerciseData[exercise.id] = {
+                    ...newExerciseData[exercise.id],
+                    sets: updatedExercise.sets
+                  };
+                  setExerciseData(newExerciseData);
+                }}
+              />
+            ) : (
+              renderExerciseSets(exercise)
+            )}
           </View>
         ))}
 
