@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from '@expo/vector-icons';
+import ExerciseType from '../components/ExerciseType';
 import TimerDisplay from '../components/TimerDisplay';
 import { auth, db } from '../firebase';
 import { doc, updateDoc, getDoc } from 'firebase/firestore';
@@ -456,7 +457,10 @@ export default function StartWorkoutScreen({ route, navigation }) {
 
         {workout.exercices.map((exercise) => (
           <View key={exercise.id} style={styles.exerciseContainer}>
-            <Text style={styles.exerciseName}>{exercise.name}</Text>
+            <View style={styles.exerciseHeader}>
+              <Text style={styles.exerciseName}>{exercise.name}</Text>
+              {exercise.type && <ExerciseType type={exercise.type} />}
+            </View>
             <View style={styles.noteContainer}>
               <View style={styles.noteInputContainer}>
                 <TouchableOpacity
@@ -593,6 +597,12 @@ export default function StartWorkoutScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
+  exerciseHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
   mainContainer: {
     flex: 1,
     backgroundColor: '#fff',
