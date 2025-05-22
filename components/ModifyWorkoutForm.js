@@ -11,11 +11,22 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
 } from "react-native";
 import { auth, db } from "../firebase";
 import { doc, updateDoc } from "firebase/firestore";
 import CloseButton from "./ui/CloseButton";
 import ActionButton from "./ui/ActionButton";
+import ExerciseType from "./ExerciseType";
+import { Ionicons } from '@expo/vector-icons';
+
+const exerciseTypes = [
+  { value: 'muscu', label: 'Muscu' },
+  { value: 'cardio', label: 'Cardio' },
+  { value: 'hiit', label: 'HIIT' },
+  { value: 'etirement', label: 'Étirement' },
+  { value: 'poids', label: 'Poids libre' },
+];
 
 export default function ModifyWorkoutForm({ visible, workout, onModified, onClose }) {
   const [name, setName] = useState(workout?.name || "");
@@ -43,7 +54,7 @@ export default function ModifyWorkoutForm({ visible, workout, onModified, onClos
 
     setExercises((prev) => [
       ...prev,
-      { id: exerciseId, name: newExercise.trim() },
+      { id: exerciseId, name: newExercise.trim(), type: 'muscu' },
     ]);
 
     setNewExercise("");
@@ -151,36 +162,58 @@ export default function ModifyWorkoutForm({ visible, workout, onModified, onClos
                 {/* Existing Exercises */}
                 {exercises.map((exercise, index) => (
                   <View key={exercise.id} style={styles.exerciseItem}>
-                    <Text style={styles.exerciseText}>
-                      {index + 1}. {exercise.name}
-                    </Text>
-                    <TouchableOpacity 
-                      onPress={() => handleRemoveExercise(exercise.id)}
-                      style={styles.removeButton}
-                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    >
-                      <Text style={styles.removeButtonText}>×</Text>
-                    </TouchableOpacity>
+                    <View style={styles.exerciseRow}>
+                      <Text style={styles.exerciseText}>
+                        {index + 1}. {exercise.name}
+                      </Text>
+                      <View style={styles.exerciseActions}>
+                        <Pressable
+                          onPress={() => {
+                            const currentTypeIndex = exerciseTypes.findIndex(t => t.value === exercise.type);
+                            const nextTypeIndex = (currentTypeIndex + 1) % exerciseTypes.length;
+                            const newType = exerciseTypes[nextTypeIndex].value;
+                            setExercises(prev => prev.map(ex => 
+                              ex.id === exercise.id ? { ...ex, type: newType } : ex
+                            ));
+                          }}
+                          style={styles.typeButton}
+                        >
+                          <View style={styles.typeButtonContent}>
+                            <ExerciseType type={exercise.type || 'muscu'} />
+                            <Ionicons name="swap-horizontal" size={16} color="#666" style={styles.editIcon} />
+                          </View>
+                        </Pressable>
+                        <TouchableOpacity 
+                          onPress={() => handleRemoveExercise(exercise.id)}
+                          style={styles.removeButton}
+                          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        >
+                          <Text style={styles.removeButtonText}>×</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
                   </View>
                 ))}
 
                 {/* Add Exercise Input */}
                 <View style={styles.addExerciseContainer}>
-                  <TextInput
-                    ref={exerciseInputRef}
-                    style={[styles.input, styles.exerciseInput]}
-                    placeholder="Nouvel exercice"
-                    value={newExercise}
-                    onChangeText={setNewExercise}
-                    onSubmitEditing={handleAddExercise}
-                    returnKeyType="done"
-                  />
-                  <ActionButton
-                    title="+"
+                  <View style={styles.inputContainer}>
+                    <TextInput
+                      ref={exerciseInputRef}
+                      style={styles.exerciseInput}
+                      placeholder="Nouvel exercice"
+                      value={newExercise}
+                      onChangeText={setNewExercise}
+                      onSubmitEditing={handleAddExercise}
+                      returnKeyType="done"
+                    />
+                  </View>
+                  <TouchableOpacity
                     onPress={handleAddExercise}
-                    variant="secondary"
                     style={styles.addButton}
-                  />
+                  >
+                    <Ionicons name="add-circle" size={30} color="#007AFF" />
+                  </TouchableOpacity>
                 </View>
               </View>
             </ScrollView>
@@ -202,6 +235,44 @@ export default function ModifyWorkoutForm({ visible, workout, onModified, onClos
 }
 
 const styles = StyleSheet.create({
+  exerciseRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+  },
+  exerciseActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  typeButton: {
+    marginRight: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f0f0f0',
+    borderRadius: 8,
+    padding: 4,
+  },
+  typeButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  addButton: {
+    marginLeft: 10,
+    height: 45,
+    width: 45,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  inputContainer: {
+    flex: 1,
+    height: 45,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 8,
+    backgroundColor: "#fff",
+    justifyContent: 'center',
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",
@@ -247,6 +318,7 @@ const styles = StyleSheet.create({
     borderColor: "#ddd",
     borderRadius: 8,
     padding: 12,
+    height: 45,
     marginBottom: 16,
     fontSize: 16,
     backgroundColor: "#fff",
@@ -282,18 +354,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     marginTop: 16,
-    gap: 8,
   },
   exerciseInput: {
     flex: 1,
     marginBottom: 0,
+    height: 45,
   },
-  addButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    padding: 0,
-  },
+
   footer: {
     padding: 16,
     borderTopWidth: 1,

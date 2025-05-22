@@ -12,12 +12,6 @@ import { Ionicons } from '@expo/vector-icons';
 export default function WorkoutDetailScreen({ route }) {
   const { workout } = route.params;
 
-  console.log("Workout complet:", workout);
-  console.log("Type d'exercice:", workout.type);
-
-  if (workout.perf) {
-    console.log("Perf dates:", Object.keys(workout.perf));
-  }
 
   const navigation = useNavigation();
   const { user, setWorkouts } = useUser();
