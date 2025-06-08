@@ -1,27 +1,24 @@
 import React, { useState, useRef } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import SeriePlusMinus from '../ui/SeriePlusMinus';
 
-export default function EtirementExercise({ exercise, onUpdateExercise }) {
-  // État local pour les séries, initialisé avec les données de l'exercice si elles existent
+export default function Etirement({ exercise, onUpdateExercise, timerRef }) {
   const [sets, setSets] = useState(
     exercise.sets?.length > 0 
       ? exercise.sets 
-      : [{ weight: '', temps: '', time: '' }]
+      : [{ poids: '', reps: '', time: '' }]
   );
   
-  // Référence pour le timer
-  const timerRef = useRef(null);
+  const internalTimerRef = useRef(null);
 
-  // Fonction pour obtenir la valeur placeholder basée sur lastPerformance
   const getPlaceholder = (index, field) => {
     if (!exercise.lastPerformance?.sets || !exercise.lastPerformance.sets[index]) return '';
     return exercise.lastPerformance.sets[index][field] || '';
   };
 
-  // Fonctions de gestion des séries
   const addSet = () => {
-    setSets([...sets, { weight: '', temps: '', time: '' }]);
+    setSets([...sets, { poids: '', reps: '', time: '' }]);
   };
 
   const removeSet = () => {
@@ -30,13 +27,11 @@ export default function EtirementExercise({ exercise, onUpdateExercise }) {
     }
   };
 
-  // Fonction pour mettre à jour une valeur dans une série
   const handleInputChange = (setIndex, field, value) => {
     const newSets = [...sets];
     newSets[setIndex][field] = value;
     setSets(newSets);
     
-    // Mettre à jour l'exercice dans le parent si nécessaire
     if (onUpdateExercise) {
       onUpdateExercise({
         ...exercise,
@@ -45,7 +40,6 @@ export default function EtirementExercise({ exercise, onUpdateExercise }) {
     }
   };
 
-  // Fonction pour copier la valeur précédente
   const copyPreviousValue = (setIndex, field) => {
     if (setIndex > 0) {
       const previousValue = sets[setIndex - 1][field];
@@ -53,30 +47,90 @@ export default function EtirementExercise({ exercise, onUpdateExercise }) {
     }
   };
 
-  // Fonction pour incrémenter une valeur
   const incrementValue = (setIndex, field) => {
     const currentValue = sets[setIndex][field] || '0';
     const newValue = (parseInt(currentValue) + 1).toString();
     handleInputChange(setIndex, field, newValue);
   };
 
-  // Fonction pour convertir le temps en secondes
   const convertTimeToSeconds = (timeStr) => {
     if (!timeStr) return 0;
+    
+    // Si le format est mm:ss
     const parts = timeStr.split(':');
     if (parts.length === 2) {
       return parseInt(parts[0]) * 60 + parseInt(parts[1]);
     }
-    return parseInt(timeStr);
+    
+    // Si c'est un nombre entier ou décimal
+    const time = parseFloat(timeStr.replace(',', '.'));
+    if (isNaN(time)) return 0;
+    
+    // Si c'est un nombre entier (comme "1"), c'est des minutes
+    if (Number.isInteger(time)) {
+      return time * 60;
+    }
+    
+    // Si c'est un nombre décimal (comme "1.30"), c'est minutes.secondes
+    const minutes = Math.floor(time);
+    const seconds = Math.round((time - minutes) * 100);  // 0.3 -> 30 secondes
+    
+    return (minutes * 60) + seconds;
   };
 
-  // Fonction pour démarrer le timer
   const startTimer = (setIndex) => {
-    const timeValue = sets[setIndex].time;
+    // Récupérer la valeur du temps ou utiliser le placeholder si aucune valeur n'est définie
+    let timeValue = sets[setIndex].time;
+    
+    // Si aucune valeur n'est définie, utiliser le placeholder
+    if (!timeValue) {
+      timeValue = getPlaceholder(setIndex, 'time');
+      
+      // Si un placeholder existe, mettre à jour la valeur dans les sets
+      if (timeValue) {
+        const newSets = [...sets];
+        newSets[setIndex].time = timeValue;
+        setSets(newSets);
+        
+        if (onUpdateExercise) {
+          onUpdateExercise({ ...exercise, sets: newSets });
+        }
+      }
+    }
+    
     if (timeValue) {
       const seconds = convertTimeToSeconds(timeValue);
-      // Ici vous pouvez implémenter la logique du timer
       console.log(`Starting timer for ${seconds} seconds`);
+      
+      // Arrêter le timer précédent s'il existe
+      if (internalTimerRef.current) {
+        clearTimeout(internalTimerRef.current);
+        internalTimerRef.current = null;
+      }
+      
+      // Démarrer le timer du StartWorkoutScreen si la référence est disponible
+      if (timerRef && timerRef.current && timerRef.current.startTimer) {
+        timerRef.current.startTimer(seconds);
+      } else {
+        console.log('Timer reference not available');
+      }
+      
+      // Exemple d'affichage d'une alerte après le temps écoulé
+      internalTimerRef.current = setTimeout(() => {
+        console.log(`Timer finished for set ${setIndex + 1}!`);
+      }, seconds * 1000);
+    } else {
+      console.log('Aucune valeur de temps définie pour démarrer le timer');
+    }
+  };
+  
+  const stopTimer = () => {
+    if (timerRef && timerRef.current && timerRef.current.stopTimer) {
+      timerRef.current.stopTimer();
+    }
+    if (internalTimerRef.current) {
+      clearTimeout(internalTimerRef.current);
+      internalTimerRef.current = null;
     }
   };
   return (
@@ -85,15 +139,10 @@ export default function EtirementExercise({ exercise, onUpdateExercise }) {
         {/* En-tête du tableau */}
         <View style={styles.tableRow}>
           <View style={[styles.serieCell, styles.serieContainer]}>
-            <TouchableOpacity
-              style={styles.setButton}
-              onPress={removeSet}
-            >
-              <Ionicons name="remove-circle" size={20} color="#FF6B6B" />
-            </TouchableOpacity>
+            <Text style={styles.setText}>Série</Text>
           </View>
           <Text style={[styles.tableHeader, styles.inputCell]}>Poids</Text>
-          <Text style={[styles.tableHeader, styles.inputCell]}>Temps</Text>
+          <Text style={[styles.tableHeader, styles.inputCell]}>Reps</Text>
           <Text style={[styles.tableHeader, styles.inputCell, styles.lastCell]}>Repos</Text>
         </View>
 
@@ -109,24 +158,24 @@ export default function EtirementExercise({ exercise, onUpdateExercise }) {
               <View style={styles.weightContainer}>
                 <TouchableOpacity 
                   style={styles.copyButton}
-                  onPress={() => copyPreviousValue(index, 'weight')}
+                  onPress={() => copyPreviousValue(index, 'poids')}
                 >
                   <Text style={styles.copyButtonText}>=</Text>
                 </TouchableOpacity>
                 <TextInput
                   style={styles.input}
-                  placeholder={getPlaceholder(index, 'weight')}
+                  placeholder={getPlaceholder(index, 'poids')}
                   placeholderTextColor="rgba(0, 0, 0, 0.3)"
                   keyboardType="numeric"
-                  value={set.weight}
-                  onChangeText={(value) => handleInputChange(index, 'weight', value)}
+                  value={set.poids}
+                  onChangeText={(value) => handleInputChange(index, 'poids', value)}
                   autoComplete="off"
                   textContentType="none"
                   autoCorrect={false}
                 />
                 <TouchableOpacity 
                   style={styles.incrementButton}
-                  onPress={() => incrementValue(index, 'weight')}
+                  onPress={() => incrementValue(index, 'poids')}
                 >
                   <Text style={styles.copyButtonText}>+</Text>
                 </TouchableOpacity>
@@ -138,24 +187,24 @@ export default function EtirementExercise({ exercise, onUpdateExercise }) {
               <View style={styles.weightContainer}>
                 <TouchableOpacity 
                   style={styles.copyButton}
-                  onPress={() => copyPreviousValue(index, 'temps')}
+                  onPress={() => copyPreviousValue(index, 'reps')}
                 >
                   <Text style={styles.copyButtonText}>=</Text>
                 </TouchableOpacity>
                 <TextInput
                   style={styles.input}
-                  placeholder={getPlaceholder(index, 'temps')}
+                  placeholder={getPlaceholder(index, 'reps')}
                   placeholderTextColor="rgba(0, 0, 0, 0.3)"
                   keyboardType="numeric"
-                  value={set.temps}
-                  onChangeText={(value) => handleInputChange(index, 'temps', value)}
+                  value={set.reps}
+                  onChangeText={(value) => handleInputChange(index, 'reps', value)}
                   autoComplete="off"
                   textContentType="none"
                   autoCorrect={false}
                 />
                 <TouchableOpacity 
                   style={styles.incrementButton}
-                  onPress={() => incrementValue(index, 'temps')}
+                  onPress={() => incrementValue(index, 'reps')}
                 >
                   <Text style={styles.copyButtonText}>+</Text>
                 </TouchableOpacity>
@@ -195,13 +244,7 @@ export default function EtirementExercise({ exercise, onUpdateExercise }) {
           </View>
         ))}
         
-        {/* Bouton d'ajout de série */}
-        <TouchableOpacity
-          style={styles.setButton}
-          onPress={addSet}
-        >
-          <Ionicons name="add-circle" size={20} color="#2196F3" />
-        </TouchableOpacity>
+        <SeriePlusMinus onAddSet={addSet} onRemoveSet={removeSet} />
       </View>
     </View>
   );
@@ -288,7 +331,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   playButton: {
-    marginLeft: 2,
+    marginLeft: 1,
   },
   setButton: {
     alignSelf: 'center',

@@ -1,27 +1,39 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useContext } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import SeriePlusMinus from '../ui/SeriePlusMinus';
 
-export default function CardioExercise({ exercise, onUpdateExercise }) {
-  // État local pour les séries
+export default function Cardio({ exercise, onUpdateExercise, timerRef }) {
   const [sets, setSets] = useState(
     exercise.sets?.length > 0 
       ? exercise.sets 
-      : [{ vitesse: '', resistance: '', temps: '', distance: '', time: '' }]
+      : [{ 
+          vitesse: '', 
+          resistance: '', 
+          temps: '', 
+          distance: '', 
+          elevation: '',
+          time: ''
+        }]
   );
   
-  // Référence pour le timer
-  const timerRef = useRef(null);
+  const internalTimerRef = useRef(null);
 
-  // Fonction pour obtenir la valeur placeholder basée sur lastPerformance
   const getPlaceholder = (index, field) => {
     if (!exercise.lastPerformance?.sets || !exercise.lastPerformance.sets[index]) return '';
     return exercise.lastPerformance.sets[index][field] || '';
   };
 
-  // Fonctions de gestion des séries
+
   const addSet = () => {
-    setSets([...sets, { vitesse: '', resistance: '', temps: '', distance: '', time: '' }]);
+    setSets([...sets, { 
+      vitesse: '', 
+      resistance: '', 
+      temps: '', 
+      distance: '', 
+      time: '',
+      elevation: ''
+    }]);
   };
 
   const removeSet = () => {
@@ -30,46 +42,105 @@ export default function CardioExercise({ exercise, onUpdateExercise }) {
     }
   };
 
-  // Fonction pour mettre à jour une valeur dans une série
   const handleInputChange = (setIndex, field, value) => {
     const newSets = [...sets];
     newSets[setIndex][field] = value;
     setSets(newSets);
     
-    // Mettre à jour l'exercice dans le parent
     if (onUpdateExercise) {
-      onUpdateExercise({
-        ...exercise,
-        sets: newSets
-      });
+      onUpdateExercise({ ...exercise, sets: newSets });
     }
   };
 
-  // Fonction pour copier la valeur précédente
   const copyPreviousValue = (setIndex, field) => {
     if (setIndex > 0) {
-      const previousValue = sets[setIndex - 1][field];
-      handleInputChange(setIndex, field, previousValue);
+      const newSets = [...sets];
+      newSets[setIndex][field] = sets[setIndex - 1][field];
+      setSets(newSets);
+      if (onUpdateExercise) {
+        onUpdateExercise({ ...exercise, sets: newSets });
+      }
     }
   };
 
-  // Fonction pour démarrer le timer
+  const incrementValue = (setIndex, field) => {
+    const newSets = [...sets];
+    const currentValue = parseFloat(newSets[setIndex][field]) || 0;
+    newSets[setIndex][field] = (currentValue + 1).toString();
+    setSets(newSets);
+    if (onUpdateExercise) {
+      onUpdateExercise({ ...exercise, sets: newSets });
+    }
+  };
+
+  const convertTimeToSeconds = (timeStr) => {
+    if (!timeStr) return 0;
+    
+    // Si le format est mm:ss
+    const parts = timeStr.split(':');
+    if (parts.length === 2) {
+      return parseInt(parts[0]) * 60 + parseInt(parts[1]);
+    }
+    
+    // Si c'est un nombre entier ou décimal
+    const time = parseFloat(timeStr.replace(',', '.'));
+    if (isNaN(time)) return 0;
+    
+    // Si c'est un nombre entier (comme "1"), c'est des minutes
+    if (Number.isInteger(time)) {
+      return time * 60;
+    }
+    
+    // Si c'est un nombre décimal (comme "1.30"), c'est minutes.secondes
+    const minutes = Math.floor(time);
+    const seconds = Math.round((time - minutes) * 100);  // 0.3 -> 30 secondes
+    
+    return (minutes * 60) + seconds;
+  };
+
   const startTimer = (setIndex) => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
+    // Récupérer la valeur du temps ou utiliser le placeholder si aucune valeur n'est définie
+    let timeValue = sets[setIndex].time;
+    
+    // Si aucune valeur n'est définie, utiliser le placeholder
+    if (!timeValue) {
+      timeValue = getPlaceholder(setIndex, 'time');
+      
+      // Si un placeholder existe, mettre à jour la valeur dans les sets
+      if (timeValue) {
+        const newSets = [...sets];
+        newSets[setIndex].time = timeValue;
+        setSets(newSets);
+        
+        if (onUpdateExercise) {
+          onUpdateExercise({ ...exercise, sets: newSets });
+        }
+      }
     }
-
-    const startTime = Date.now();
-    timerRef.current = setInterval(() => {
-      const elapsedTime = Math.floor((Date.now() - startTime) / 1000);
-      const minutes = Math.floor(elapsedTime / 60);
-      const seconds = elapsedTime % 60;
-      const timeString = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-      handleInputChange(setIndex, 'time', timeString);
-    }, 1000);
+    
+    if (timeValue) {
+      const seconds = convertTimeToSeconds(timeValue);
+      console.log(`Starting timer for ${seconds} seconds`);
+      
+      // Arrêter le timer précédent s'il existe
+      if (internalTimerRef.current) {
+        clearInterval(internalTimerRef.current);
+      }
+      
+      // Démarrer le timer du StartWorkoutScreen si la référence est disponible
+      if (timerRef && timerRef.current) {
+        timerRef.current.startTimer(seconds);
+      }
+      
+      // Exemple d'affichage d'une alerte après le temps écoulé
+      internalTimerRef.current = setTimeout(() => {
+        console.log(`Timer finished for set ${setIndex + 1}!`);
+      }, seconds * 1000);
+    } else {
+      console.log('Aucune valeur de temps définie pour démarrer le timer');
+    }
   };
 
-  // Fonction pour arrêter le timer
   const stopTimer = () => {
     if (timerRef.current) {
       clearInterval(timerRef.current);
@@ -79,118 +150,228 @@ export default function CardioExercise({ exercise, onUpdateExercise }) {
 
   return (
     <View style={styles.container}>
-
-      {sets.map((set, index) => (
-        <View key={index} style={styles.setContainer}>
-          <View style={styles.setHeader}>
-            <Text style={styles.setText}>Série {index + 1}</Text>
-            {index > 0 && (
-              <TouchableOpacity onPress={() => removeSet()} style={styles.removeButton}>
-                <Ionicons name="remove-circle-outline" size={24} color="red" />
-              </TouchableOpacity>
-            )}
+      <View style={styles.tableContainer}>
+        {/* En-tête du tableau */}
+        <View style={styles.tableRow}>
+          <View style={[styles.serieCell, styles.serieContainer]}>
+            <Text style={styles.setText}>Série</Text>
           </View>
-
-          <View style={styles.inputContainer}>
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Vitesse</Text>
-              {index > 0 && (
-                <TouchableOpacity onPress={() => copyPreviousValue(index, 'vitesse')}>
-                  <Text style={styles.equalButton}>=</Text>
-                </TouchableOpacity>
-              )}
-              <TextInput
-                style={styles.input}
-                placeholder={getPlaceholder(index, 'vitesse')}
-                placeholderTextColor="rgba(0, 0, 0, 0.3)"
-                keyboardType="numeric"
-                value={set.vitesse}
-                onChangeText={(value) => handleInputChange(index, 'vitesse', value)}
-              />
+          <View style={[styles.headerGroup]}>
+            <View style={styles.inputCell}>
+              <Text style={[styles.tableHeader, styles.vitesseHeader]}>Vitesse /</Text>
             </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Résistance</Text>
-              {index > 0 && (
-                <TouchableOpacity onPress={() => copyPreviousValue(index, 'resistance')}>
-                  <Text style={styles.equalButton}>=</Text>
-                </TouchableOpacity>
-              )}
-              <TextInput
-                style={styles.input}
-                placeholder={getPlaceholder(index, 'resistance')}
-                placeholderTextColor="rgba(0, 0, 0, 0.3)"
-                keyboardType="numeric"
-                value={set.resistance}
-                onChangeText={(value) => handleInputChange(index, 'resistance', value)}
-              />
+            <View style={styles.inputCell}>
+              <Text style={[styles.tableHeader, styles.resistanceHeader]}>Résistance /</Text>
             </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Temps</Text>
-              {index > 0 && (
-                <TouchableOpacity onPress={() => copyPreviousValue(index, 'temps')}>
-                  <Text style={styles.equalButton}>=</Text>
-                </TouchableOpacity>
-              )}
-              <TextInput
-                style={styles.input}
-                placeholder={getPlaceholder(index, 'temps')}
-                placeholderTextColor="rgba(0, 0, 0, 0.3)"
-                keyboardType="numeric"
-                value={set.temps}
-                onChangeText={(value) => handleInputChange(index, 'temps', value)}
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Distance</Text>
-              {index > 0 && (
-                <TouchableOpacity onPress={() => copyPreviousValue(index, 'distance')}>
-                  <Text style={styles.equalButton}>=</Text>
-                </TouchableOpacity>
-              )}
-              <TextInput
-                style={styles.input}
-                placeholder={getPlaceholder(index, 'distance')}
-                placeholderTextColor="rgba(0, 0, 0, 0.3)"
-                keyboardType="numeric"
-                value={set.distance}
-                onChangeText={(value) => handleInputChange(index, 'distance', value)}
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Repos</Text>
-              <View style={styles.timerButtons}>
-                <TouchableOpacity onPress={() => startTimer(index)} style={styles.timerButton}>
-                  <Ionicons name="play" size={20} color="green" />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={stopTimer} style={styles.timerButton}>
-                  <Ionicons name="stop" size={20} color="red" />
-                </TouchableOpacity>
-              </View>
-              <TextInput
-                style={styles.input}
-                placeholder={getPlaceholder(index, 'time')}
-                placeholderTextColor="rgba(0, 0, 0, 0.3)"
-                value={set.time}
-                editable={false}
-              />
+            <View style={styles.inputCell}>
+              <Text style={[styles.tableHeader, styles.deniveleHeader]}>Dénivelé /</Text>
             </View>
           </View>
         </View>
-      ))}
+        <View style={styles.tableRow}>
+          <View style={[styles.serieCell, styles.serieContainer]}>
+            <Text style={styles.setText}></Text>
+          </View>
+          <View style={[styles.headerGroup, styles.lastCell]}>
+            <View style={styles.inputCell}>
+              <Text style={[styles.tableHeader, styles.tempsHeader]}>Temps</Text>
+            </View>
+            <View style={styles.inputCell}>
+              <Text style={[styles.tableHeader, styles.distanceHeader]}>Distance</Text>
+            </View>
+            <View style={styles.inputCell}>
+              <Text style={[styles.tableHeader, styles.reposHeader]}>Repos</Text>
+            </View>
+          </View>
+          
+        </View>
+        <View style={styles.seriesSeparator} />
+        {/* Lignes du tableau */}
+        {sets.map((set, index) => (
+          <View key={index}>
+            {index > 0 && <View style={styles.seriesSeparator} />}
+            <View style={[styles.tableRow, styles.seriesRow]}>
+              <View style={[styles.serieCell, styles.serieAlignTop]}>
+                <Text style={styles.setText}>{index + 1}</Text>
+              </View>
+              
+              <View style={styles.serieInputContainer}>
+              {/* First row of inputs */}
+              <View style={styles.inputGroup}>
+                <View style={styles.inputCell}>
+                  <View style={styles.weightContainer}>
+                    <TouchableOpacity 
+                      style={styles.copyButton}
+                      onPress={() => copyPreviousValue(index, 'vitesse')}
+                    >
+                      <Text style={styles.copyButtonText}>=</Text>
+                    </TouchableOpacity>
+                    <TextInput
+                      style={[styles.input, styles.vitesseInput]}
+                      placeholder={getPlaceholder(index, 'vitesse')}
+                      placeholderTextColor="rgba(0, 0, 0, 0.3)"
+                      keyboardType="numeric"
+                      value={set.vitesse}
+                      onChangeText={(value) => handleInputChange(index, 'vitesse', value)}
+                      autoComplete="off"
+                      textContentType="none"
+                      autoCorrect={false}
+                    />
+                    <TouchableOpacity 
+                      style={styles.invisibleButton}
+                    >
+                      <Text style={styles.invisibleButtonText}>+</Text>
+                    </TouchableOpacity>
 
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity onPress={addSet} style={styles.roundButton}>
-          <Text style={styles.buttonText}>+ Ajouter une série</Text>
-        </TouchableOpacity>
-        {sets.length > 1 && (
-          <TouchableOpacity onPress={removeSet} style={[styles.roundButton, styles.removeRoundButton]}>
-            <Text style={[styles.buttonText, styles.removeButtonText]}>- Supprimer la dernière série</Text>
-          </TouchableOpacity>
-        )}
+                  </View>
+                </View>
+                <View style={styles.inputCell}>
+                  <View style={styles.weightContainer}>
+                    <TouchableOpacity 
+                      style={styles.copyButton}
+                      onPress={() => copyPreviousValue(index, 'resistance')}
+                    >
+                      <Text style={styles.copyButtonText}>=</Text>
+                    </TouchableOpacity>
+                    <TextInput
+                      style={[styles.input, styles.resistanceInput]}
+                      placeholder={getPlaceholder(index, 'resistance')}
+                      placeholderTextColor="rgba(0, 0, 0, 0.3)"
+                      keyboardType="numeric"
+                      value={set.resistance}
+                      onChangeText={(value) => handleInputChange(index, 'resistance', value)}
+                      autoComplete="off"
+                      textContentType="none"
+                      autoCorrect={false}
+                    />
+                    <TouchableOpacity 
+                      style={styles.invisibleButton}
+                    >
+                      <Text style={styles.invisibleButtonText}>+</Text>
+                    </TouchableOpacity>
+
+                  </View>
+                </View>
+                <View style={styles.inputCell}>
+                  <View style={styles.weightContainer}>
+                    <TouchableOpacity 
+                      style={styles.copyButton}
+                      onPress={() => copyPreviousValue(index, 'elevation')}
+                    >
+                      <Text style={styles.copyButtonText}>=</Text>
+                    </TouchableOpacity>
+                    <TextInput
+                      style={[styles.input, styles.deniveleInput]}
+                      placeholder={getPlaceholder(index, 'elevation')}
+                      placeholderTextColor="rgba(0, 0, 0, 0.3)"
+                      keyboardType="numeric"
+                      value={set.elevation}
+                      onChangeText={(value) => handleInputChange(index, 'elevation', value)}
+                      autoComplete="off"
+                      textContentType="none"
+                      autoCorrect={false}
+                    />
+                    <TouchableOpacity 
+                      style={styles.invisibleButton}
+                    >
+                      <Text style={styles.invisibleButtonText}>+</Text>
+                    </TouchableOpacity>
+
+                  </View>
+                </View>
+              </View>
+
+              {/* Second row of inputs */}
+              <View style={[styles.inputGroup, styles.lastCell]}>
+                <View style={styles.inputCell}>
+                  <View style={styles.weightContainer}>
+                    <TouchableOpacity 
+                      style={styles.copyButton}
+                      onPress={() => copyPreviousValue(index, 'temps')}
+                    >
+                      <Text style={styles.copyButtonText}>=</Text>
+                    </TouchableOpacity>
+                    <TextInput
+                      style={[styles.input, styles.tempsInput]}
+                      placeholder={getPlaceholder(index, 'temps')}
+                      placeholderTextColor="rgba(0, 0, 0, 0.3)"
+                      keyboardType="decimal-pad"
+                      value={set.temps}
+                      onChangeText={(value) => handleInputChange(index, 'temps', value)}
+                      autoComplete="off"
+                      textContentType="none"
+                      autoCorrect={false}
+                      spellCheck={false}
+                      dataDetectorTypes="none"
+                    />
+                    <TouchableOpacity 
+                      style={styles.invisibleButton}
+                    >
+                      <Text style={styles.invisibleButtonText}>+</Text>
+                    </TouchableOpacity>
+
+                  </View>
+                </View>
+                <View style={styles.inputCell}>
+                  <View style={styles.weightContainer}>
+                    <TouchableOpacity 
+                      style={styles.copyButton}
+                      onPress={() => copyPreviousValue(index, 'distance')}
+                    >
+                      <Text style={styles.copyButtonText}>=</Text>
+                    </TouchableOpacity>
+                    <TextInput
+                      style={[styles.input, styles.distanceInput]}
+                      placeholder={getPlaceholder(index, 'distance')}
+                      placeholderTextColor="rgba(0, 0, 0, 0.3)"
+                      keyboardType="numeric"
+                      value={set.distance}
+                      onChangeText={(value) => handleInputChange(index, 'distance', value)}
+                      autoComplete="off"
+                      textContentType="none"
+                      autoCorrect={false}
+                    />
+                    <TouchableOpacity 
+                      style={styles.invisibleButton}
+                    >
+                      <Text style={styles.invisibleButtonText}>+</Text>
+                    </TouchableOpacity>
+
+                  </View>
+                </View>
+                <View style={styles.inputCell}>
+                  <View style={styles.weightContainer}>
+                    <TouchableOpacity 
+                      style={styles.invisibleButton}
+                    >
+                      <Text style={styles.invisibleButtonText}>=</Text>
+                    </TouchableOpacity>
+                    <TextInput
+                      style={[styles.input, styles.reposInput]}
+                      placeholder={getPlaceholder(index, 'time')}
+                      placeholderTextColor="rgba(0, 0, 0, 0.3)"
+                      keyboardType="numeric"
+                      value={set.time}
+                      onChangeText={(value) => handleInputChange(index, 'time', value)}
+                      autoComplete="off"
+                      textContentType="none"
+                      autoCorrect={false}
+                    />
+                    <TouchableOpacity 
+                      style={styles.playButton}
+                      onPress={() => startTimer(index)}
+                    >
+                      <Ionicons name="play-circle" size={24} color="#4CAF50" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            </View>
+            </View>
+          </View>
+        ))}
+        
+        <SeriePlusMinus onAddSet={addSet} onRemoveSet={removeSet} />
       </View>
     </View>
   );
@@ -198,15 +379,181 @@ export default function CardioExercise({ exercise, onUpdateExercise }) {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 2,
-    backgroundColor: 'white',
+    backgroundColor: '#fff',
     borderRadius: 4,
-    margin: 1,
+    padding: 2,
+    marginVertical: 1,
   },
-  title: {
-    fontSize: 18,
-    fontWeight: 'bold',
+
+  tableContainer: {
+    marginTop: 2,
+  },
+  tableRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 2,
+  },
+  seriesRow: {
+    gap: 4,
+  },
+  headerGroup: {
+    flexDirection: 'row',
+    flex: 1,
+    justifyContent: 'space-between',
+  },
+  tableHeader: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+  },
+  vitesseHeader: {
+    color: '#2196F3',
+  },
+  resistanceHeader: {
+    color: '#4CAF50',
+  },
+  reposHeader: {
+    color: '#4CAF50',
+  },
+  tempsHeader: {
+    color: '#4CAF50',
+  },
+  distanceHeader: {
+    color: '#000000',
+  },
+  deniveleHeader: {
+    color: '#000000',
+  },
+  headerBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#ddd',
+    paddingBottom: 4,
+    marginBottom: 4,
+  },
+  serieCell: {
+    width: 40,
+    alignItems: 'center',
+  },
+  serieAlignTop: {
+    alignSelf: 'flex-start',
+    paddingTop: 5,
+  },
+  seriesSeparator: {
+    height: 1,
+    backgroundColor: '#e0e0e0',
+    marginVertical: 8,
+    marginLeft: 40,
+  },
+  serieContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  setText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#666',
+  },
+  inputCell: {
+    flex: 1,
+    marginHorizontal: 4,
+  },
+  lastCell: {
+    marginRight: 0,
+  },
+  inputGroup: {
+    flexDirection: 'row',
+    flex: 1,
+    justifyContent: 'space-between',
+  },
+  weightContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 30,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 4,
+    height: 30,
+    paddingHorizontal: 4,
+    fontSize: 14,
+    flex: 1,
+    minWidth: 30,
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    paddingTop: 0,
+    paddingBottom: 0,
+    justifyContent: 'center',
+  },
+  vitesseInput: {
+    borderColor: '#2196F3',
+  },
+  resistanceInput: {
+    borderColor: '#4CAF50',
+  },
+  reposInput: {
+    borderColor: '#4CAF50',
+  },
+  tempsInput: {
+    borderColor: '#4CAF50',
+  },
+  distanceInput: {
+    borderColor: '#000000',
+  },
+  deniveleInput: {
+    borderColor: '#000000',
+  },
+  inputContainer: {
+    gap: 2,
+  },
+  serieInputContainer: {
+    flex: 1,
+    flexDirection: 'column',
+    gap: 6,
+  },
+
+  copyButton: {
+    backgroundColor: '#2196F3',
+    borderRadius: 3,
+    width: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 2,
+  },
+  incrementButton: {
+    backgroundColor: '#4CAF50',
+    borderRadius: 3,
+    width: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 2,
+  },
+  copyButtonText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  playButton: {
+    marginLeft: 1,
+  },
+
+  invisibleButton: {
+    width: 20,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    opacity: 0,
+  },
+  invisibleButtonText: {
+    fontSize: 16,
+    opacity: 0,
+  },
+  setButton: {
+    alignSelf: 'center',
+    marginTop: 8,
   },
   setContainer: {
     marginBottom: 2,
@@ -220,68 +567,5 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 2,
-  },
-  setText: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  removeButton: {
-    padding: 2,
-  },
-  inputContainer: {
-    gap: 2,
-  },
-  inputGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  label: {
-    width: 80,
-    fontSize: 14,
-  },
-  input: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 4,
-    padding: 8,
-    fontSize: 14,
-  },
-  equalButton: {
-    fontSize: 18,
-    color: 'blue',
-    paddingHorizontal: 8,
-  },
-  timerButtons: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  timerButton: {
-    padding: 4,
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 2,
-    marginBottom: 4,
-  },
-  roundButton: {
-    backgroundColor: '#2196F3',
-    padding: 4,
-    borderRadius: 4,
-    flex: 1,
-    marginHorizontal: 2,
-    alignItems: 'center',
-  },
-  removeRoundButton: {
-    backgroundColor: '#FF6B6B',
-  },
-  buttonText: {
-    color: 'white',
-    fontSize: 14,
-  },
-  removeButtonText: {
-    color: 'white',
-  },
+  }
 });

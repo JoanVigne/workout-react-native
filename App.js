@@ -1,7 +1,9 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { UserProvider } from "./context/UserContext";
+import { getApps } from "firebase/app";
+import "./firebase"; // Import app to ensure initialization
 
 // Screens
 import HomeScreen from "./screens/HomeScreen";

@@ -13,6 +13,7 @@ import { doc, getDoc } from "firebase/firestore";
 import CreateWorkoutForm from "../components/CreateWorkoutForm";
 import UserOptionsModal from "../components/UserOptionsModal";
 import WorkoutItem from "../components/WorkoutItem";
+import Loading from "../components/ui/Loading";
 import { useUser } from "../context/UserContext";
 
 export default function HomeScreen({ navigation }) {
@@ -21,10 +22,13 @@ export default function HomeScreen({ navigation }) {
   const { user, nickname, workouts, setWorkouts, loading } = useUser();
 
   useEffect(() => {
-    if (!auth.currentUser) {
+    console.log("HomeScreen - Current workouts:", workouts);
+    console.log("HomeScreen - Loading state:", loading);
+    console.log("HomeScreen - User:", user?.uid);
+    if (!loading && !auth.currentUser) {
       navigation.replace("Login");
     }
-  }, []);
+  }, [workouts, loading, user, navigation]);
 
   const handleWorkoutCreated = (workoutId, workoutName, workoutDescription, exercices) => {
     const newWorkout = {
@@ -74,8 +78,13 @@ export default function HomeScreen({ navigation }) {
         </View>
 
         <Text style={styles.subtitle}>📋 Mes Workouts :</Text>
-        {workouts.length === 0 ? (
-          <Text>Aucun workout trouvé.</Text>
+        {loading ? (
+          <Loading 
+            text="Chargement des workouts..." 
+            style={styles.loadingContainer} 
+          />
+        ) : workouts.length === 0 ? (
+          <Text style={styles.noWorkoutsText}>Aucun workout trouvé.</Text>
         ) : (
           workouts.map((workout) => (
             <WorkoutItem key={workout.id} workout={workout} />
@@ -90,7 +99,16 @@ const styles = StyleSheet.create({
   container: {
     padding: 20,
     paddingTop: 50,
+    paddingBottom: 120,
     flexGrow: 1,
+  },
+  loadingContainer: {
+    marginVertical: 20,
+  },
+  noWorkoutsText: {
+    textAlign: "center",
+    marginVertical: 20,
+    color: "#666",
   },
 
   title: { fontSize: 24, marginBottom: 15, textAlign: "center" },

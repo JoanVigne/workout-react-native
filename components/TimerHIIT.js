@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Audio } from 'expo-av';
+import { Audio } from 'expo-audio';
 
 const TimerHIIT = forwardRef(({ onComplete }, ref) => {
   const [isRunning, setIsRunning] = useState(false);

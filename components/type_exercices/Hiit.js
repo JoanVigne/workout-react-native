@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import SeriePlusMinus from '../ui/SeriePlusMinus';
 
 export default function HiitExercise({ exercise, onUpdateExercise }) {
   // État pour les rounds
@@ -158,16 +159,7 @@ export default function HiitExercise({ exercise, onUpdateExercise }) {
         </View>
       ))}
 
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity onPress={addRound} style={styles.roundButton}>
-          <Text style={styles.buttonText}>+ Ajouter un round</Text>
-        </TouchableOpacity>
-        {rounds.length > 1 && (
-          <TouchableOpacity onPress={removeRound} style={[styles.roundButton, styles.removeRoundButton]}>
-            <Text style={[styles.buttonText, styles.removeButtonText]}>- Supprimer le dernier round</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+      <SeriePlusMinus onAddSet={addRound} onRemoveSet={removeRound} />
     </ScrollView>
   );
 }

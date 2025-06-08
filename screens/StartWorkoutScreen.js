@@ -19,6 +19,7 @@ import { useUser } from '../context/UserContext';
 import CardioExercise from '../components/type_exercices/Cardio';
 import EtirementExercise from "../components/type_exercices/Etirement";
 import HiitExercise from "../components/type_exercices/Hiit";
+import MuscuExercise from "../components/type_exercices/Muscu";
 export default function StartWorkoutScreen({ route, navigation }) {
   const [workout, setWorkout] = useState(route.params.workout);
 
@@ -193,68 +194,9 @@ export default function StartWorkoutScreen({ route, navigation }) {
       }));
       return;
     }
-
-    // Handle sets data (weight, reps, time)
-    const [fieldType, setIndex] = field.split('_');
-    setExerciseData(prevData => {
-      const currentExerciseData = prevData[exerciseId] || {};
-      const currentSets = currentExerciseData.sets || {};
-      const currentSet = currentSets[setIndex] || {};
-
-      return {
-        ...prevData,
-        [exerciseId]: {
-          ...currentExerciseData,
-          sets: {
-            ...currentSets,
-            [setIndex]: {
-              ...currentSet,
-              [fieldType]: value
-            }
-          }
-        }
-      };
-    });
   };
 
-  const addSet = (exerciseId) => {
-    setExerciseData(prev => {
-      const exerciseData = prev[exerciseId] || {};
-      const currentSets = exerciseData.sets || {};
-      const newSetIndex = Object.keys(currentSets).length;
-      
-      return {
-        ...prev,
-        [exerciseId]: {
-          ...exerciseData,
-          sets: {
-            ...currentSets,
-            [newSetIndex]: { weight: '', reps: '', time: '', isTimerRunning: false }
-          }
-        }
-      };
-    });
-  };
 
-  const removeSet = (exerciseId) => {
-    setExerciseData(prev => {
-      const exerciseData = prev[exerciseId] || {};
-      const currentSets = { ...exerciseData.sets || {} };
-      const lastIndex = Object.keys(currentSets).length - 1;
-      
-      if (lastIndex >= 0) {
-        delete currentSets[lastIndex];
-      }
-      
-      return {
-        ...prev,
-        [exerciseId]: {
-          ...exerciseData,
-          sets: currentSets
-        }
-      };
-    });
-  };
 
   // Initialize exercise data with sets from last performance
   useEffect(() => {
@@ -273,171 +215,55 @@ export default function StartWorkoutScreen({ route, navigation }) {
 
   const renderExerciseSets = (exercise) => {
     const currentExerciseData = exerciseData[exercise.id] || {};
-    const currentSets = currentExerciseData.sets || {};
-    const setsArray = Object.keys(currentSets).map(Number).sort((a, b) => a - b);
+    const lastPerformance = getLastPerformance(exercise.id);
 
-    return (
-      <View style={styles.tableContainer}>
-        {/* Table Header */}
-        <View style={styles.tableRow}>
-          <View style={[styles.serieCell, styles.serieContainer]}>
-            {setsArray.length > 1 && (
-              <TouchableOpacity
-                style={styles.setButton}
-                onPress={() => removeSet(exercise.id)}
-              >
-                <Ionicons name="remove-circle" size={20} color="#FF6B6B" />
-              </TouchableOpacity>
-            )}
-          </View>
-          <Text style={[styles.tableHeader, styles.inputCell]}>Poids</Text>
-          <Text style={[styles.tableHeader, styles.inputCell]}>Reps</Text>
-          <Text style={[styles.tableHeader, styles.inputCell, styles.lastCell]}>Time</Text>
-        </View>
-
-        {/* Table Rows */}
-        {setsArray.map((setIndex) => (
-          <View key={`${exercise.id}-set-${setIndex}`} style={styles.tableRow}>
-            <View style={[styles.serieCell]}>
-              <Text style={styles.setText}>{setIndex + 1}</Text>
-            </View>
-
-            <View style={styles.inputCell}>
-              <View style={styles.weightContainer}>
-                <TouchableOpacity 
-                  style={styles.copyButton}
-                  onPress={() => {
-                    const placeholderValue = getPlaceholder(exercise.id, setIndex, 'weight');
-                    if (placeholderValue) {
-                      handleInputChange(exercise.id, `weight_${setIndex}`, placeholderValue);
-                    }
-                  }}
-                >
-                  <Text style={styles.copyButtonText}>=</Text>
-                </TouchableOpacity>
-                <TextInput
-                  style={styles.input}
-                  placeholder={getPlaceholder(exercise.id, setIndex, 'weight')}
-                  placeholderTextColor="rgba(0, 0, 0, 0.3)"
-                  keyboardType="numeric"
-                  value={currentExerciseData.sets?.[setIndex]?.weight || ''}
-                  onChangeText={(value) => handleInputChange(exercise.id, `weight_${setIndex}`, value)}
-                  autoComplete="off"
-                  textContentType="none"
-                  autoCorrect={false}
-                />
-                <TouchableOpacity 
-                  style={styles.incrementButton}
-                  onPress={() => {
-                    const currentValue = currentExerciseData.sets?.[setIndex]?.weight;
-                    const placeholderValue = getPlaceholder(exercise.id, setIndex, 'weight');
-                    const baseValue = currentValue || placeholderValue || '0';
-                    const newValue = (parseInt(baseValue) + 1).toString();
-                    handleInputChange(exercise.id, `weight_${setIndex}`, newValue);
-                  }}
-                >
-                  <Text style={styles.copyButtonText}>+</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-            
-            <View style={styles.inputCell}>
-              <View style={styles.weightContainer}>
-                <TouchableOpacity 
-                  style={styles.copyButton}
-                  onPress={() => {
-                    const placeholderValue = getPlaceholder(exercise.id, setIndex, 'reps');
-                    if (placeholderValue) {
-                      handleInputChange(exercise.id, `reps_${setIndex}`, placeholderValue);
-                    }
-                  }}
-                >
-                  <Text style={styles.copyButtonText}>=</Text>
-                </TouchableOpacity>
-                <TextInput
-                  style={styles.input}
-                  placeholder={getPlaceholder(exercise.id, setIndex, 'reps')}
-                  placeholderTextColor="rgba(0, 0, 0, 0.3)"
-                  keyboardType="numeric"
-                  value={currentExerciseData.sets?.[setIndex]?.reps || ''}
-                  onChangeText={(value) => handleInputChange(exercise.id, `reps_${setIndex}`, value)}
-                  autoComplete="off"
-                  textContentType="none"
-                  autoCorrect={false}
-                />
-                <TouchableOpacity 
-                  style={styles.incrementButton}
-                  onPress={() => {
-                    const currentValue = currentExerciseData.sets?.[setIndex]?.reps;
-                    const placeholderValue = getPlaceholder(exercise.id, setIndex, 'reps');
-                    const baseValue = currentValue || placeholderValue || '0';
-                    const newValue = (parseInt(baseValue) + 1).toString();
-                    handleInputChange(exercise.id, `reps_${setIndex}`, newValue);
-                  }}
-                >
-                  <Text style={styles.copyButtonText}>+</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-            
-            <View style={[styles.inputCell, styles.lastCell]}>
-              <View style={styles.timeInputContainer}>
-                <TouchableOpacity 
-                  style={styles.copyButton}
-                  onPress={() => {
-                    const placeholderValue = getPlaceholder(exercise.id, setIndex, 'time');
-                    if (placeholderValue) {
-                      handleInputChange(exercise.id, `time_${setIndex}`, placeholderValue);
-                    }
-                  }}
-                >
-                  <Text style={styles.copyButtonText}>=</Text>
-                </TouchableOpacity>
-                <TextInput
-                  style={styles.input}
-                  placeholder={getPlaceholder(exercise.id, setIndex, 'time')}
-                  placeholderTextColor="rgba(0, 0, 0, 0.3)"
-                  keyboardType="decimal-pad"
-                  value={exerciseData[exercise.id]?.sets?.[setIndex]?.time || ''}
-                  onChangeText={(value) => {
-                    // Store the display value (e.g., "1.3")
-                    handleInputChange(exercise.id, `time_${setIndex}`, value);
-                  }}
-                  autoComplete="off"
-                  textContentType="none"
-                  autoCorrect={false}
-                  spellCheck={false}
-                  dataDetectorTypes="none"
-                />
-                <TouchableOpacity 
-                  style={styles.playButton}
-                  onPress={() => {
-                    const value = exerciseData[exercise.id]?.sets?.[setIndex]?.time;
-                    const placeholder = getPlaceholder(exercise.id, setIndex, 'time');
-                    const timeToUse = value || placeholder;
-                    
-                    if (timeToUse) {
-                      const seconds = convertTimeToSeconds(timeToUse);
-                      timerRef.current?.startTimer(seconds);
-                    }
-                  }}
-                >
-                  <Ionicons name="play-circle" size={24} color="#4CAF50" />
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        ))}
-        
-        {/* Add series button */}
-        <TouchableOpacity
-          style={styles.setButton}
-          onPress={() => addSet(exercise.id)}
-        >
-          <Ionicons name="add-circle" size={20} color="#2196F3" />
-        </TouchableOpacity>
-      </View>
-    );
+    switch(exercise.type) {
+      case 'muscu':
+        return <MuscuExercise 
+          exercise={{ ...exercise, lastPerformance }} 
+          onUpdateExercise={(updatedExercise) => {
+            setExerciseData(prev => ({
+              ...prev,
+              [exercise.id]: updatedExercise
+            }));
+          }}
+          timerRef={timerRef}
+        />;
+      case 'cardio':
+        return <CardioExercise 
+          exercise={{ ...exercise, lastPerformance }} 
+          onUpdateExercise={(updatedExercise) => {
+            setExerciseData(prev => ({
+              ...prev,
+              [exercise.id]: updatedExercise
+            }));
+          }}
+          timerRef={timerRef}
+        />;
+      case 'etirement':
+        return <EtirementExercise 
+          exercise={{ ...exercise, lastPerformance }} 
+          onUpdateExercise={(updatedExercise) => {
+            setExerciseData(prev => ({
+              ...prev,
+              [exercise.id]: updatedExercise
+            }));
+          }}
+          timerRef={timerRef}
+        />;
+      case 'hiit':
+        return <HiitExercise 
+          exercise={{ ...exercise, lastPerformance }} 
+          onUpdateExercise={(updatedExercise) => {
+            setExerciseData(prev => ({
+              ...prev,
+              [exercise.id]: updatedExercise
+            }));
+          }} 
+        />;
+      default:
+        return null;
+    }
   };
 
   const updateNoteHeight = (exerciseId, height) => {
@@ -474,6 +300,9 @@ export default function StartWorkoutScreen({ route, navigation }) {
               <Text style={styles.exerciseName}>{exercise.name}</Text>
               {exercise.type && <ExerciseType type={exercise.type} />}
             </View>
+            
+            {renderExerciseSets(exercise)}
+
             <View style={styles.noteContainer}>
               <View style={styles.noteInputContainer}>
                 <TouchableOpacity
@@ -500,79 +329,29 @@ export default function StartWorkoutScreen({ route, navigation }) {
                 />
               </View>
             </View>
-            {exercise.type === 'etirement' ? (
-              <EtirementExercise 
-                exercise={{
-                  ...exercise,
-                  sets: exerciseData[exercise.id]?.sets || [],
-                  // On envoie un objet vide si pas de lastPerformance
-                  lastPerformance: {
-                    sets: []
-                  }
-                }}
-                onUpdateExercise={(updatedExercise) => {
-                  const newExerciseData = { ...exerciseData };
-                  newExerciseData[exercise.id] = {
-                    ...newExerciseData[exercise.id],
-                    sets: updatedExercise.sets
-                  };
-                  setExerciseData(newExerciseData);
-                }}
-              />
-            ) : exercise.type === 'cardio' ? (
-              <CardioExercise 
-                exercise={{
-                  ...exercise,
-                  sets: exerciseData[exercise.id]?.sets || [],
-                  lastPerformance: {
-                    sets: []
-                  }
-                }}
-                onUpdateExercise={(updatedExercise) => {
-                  const newExerciseData = { ...exerciseData };
-                  newExerciseData[exercise.id] = {
-                    ...newExerciseData[exercise.id],
-                    sets: updatedExercise.sets
-                  };
-                  setExerciseData(newExerciseData);
-                }}
-              />
-            ) : exercise.type === 'hiit' ? (
-              <HiitExercise
-                exercise={{
-                  ...exercise,
-                  rounds: exerciseData[exercise.id]?.rounds || [],
-                  lastPerformance: {
-                    rounds: []
-                  }
-                }}
-                onUpdateExercise={(updatedExercise) => {
-                  const newExerciseData = { ...exerciseData };
-                  newExerciseData[exercise.id] = {
-                    ...newExerciseData[exercise.id],
-                    rounds: updatedExercise.rounds
-                  };
-                  setExerciseData(newExerciseData);
-                }}
-              />
-            ) : (
-              renderExerciseSets(exercise)
-            )}
           </View>
         ))}
 
-        <TouchableOpacity 
-          style={styles.finishButton}
-          onPress={() => {
-            Alert.alert(
-              'Terminer l\'entraînement',
-              'Avez-vous fini l\'entraînement ?',
-              [
-                { text: 'Non', style: 'cancel' },
-                { 
-                  text: 'Oui', 
-                  style: 'default', 
-                  onPress: async () => {
+        <View style={styles.buttonsContainer}>
+          <TouchableOpacity 
+            style={styles.quitButton}
+            onPress={handleNavigation}
+          >
+            <Text style={styles.quitButtonText}>Quitter entraînement</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.finishButton}
+            onPress={() => {
+              Alert.alert(
+                'Terminer l\'entraînement',
+                'Avez-vous fini l\'entraînement ?',
+                [
+                  { text: 'Non', style: 'cancel' },
+                  { 
+                    text: 'Oui', 
+                    style: 'default', 
+                    onPress: async () => {
                     try {
                       const user = auth.currentUser;
                       if (!user) {
@@ -661,6 +440,7 @@ export default function StartWorkoutScreen({ route, navigation }) {
         >
           <Text style={styles.finishButtonText}>Terminer l'entraînement</Text>
         </TouchableOpacity>
+        </View>
       </ScrollView>
     </View>
   );
@@ -723,7 +503,7 @@ const styles = StyleSheet.create({
   exerciseContainer: {
     padding: 1,
     marginHorizontal: 6,
-    marginBottom: 10,
+    marginBottom: 24,
     backgroundColor: "#f8f9fa",
     borderRadius: 6,
     borderWidth: 1,
@@ -822,12 +602,32 @@ const styles = StyleSheet.create({
     height: 'auto',
     minHeight: 36,
   },
+  buttonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 50,
+    marginBottom: 120,
+    paddingHorizontal: 8,
+  },
+  quitButton: {
+    backgroundColor: "#f44336",
+    padding: 8,
+    borderRadius: 4,
+    flex: 1,
+    marginRight: 8,
+  },
+  quitButtonText: {
+    color: "#fff",
+    textAlign: "center",
+    fontSize: 12,
+    fontWeight: "600",
+  },
   finishButton: {
     backgroundColor: "#2196F3",
     padding: 8,
     borderRadius: 4,
-    margin: 8,
-    marginBottom: 16,
+    flex: 1,
   },
   finishButtonText: {
     color: "#fff",

@@ -80,17 +80,19 @@ export default function CreateWorkoutForm({ visible, onCreated, onClose }) {
               const user = auth.currentUser;
               if (!user) throw new Error("Utilisateur non connecté");
 
-              await setDoc(
-                doc(db, "workouts", workoutId),
-                {
+              const workoutData = {
+                [workoutId]: {
                   id: workoutId,
-                  userId: user.uid,
                   name,
                   description,
-                  createdAt: new Date(),
                   exercices: exercises,
+                  perf: {},
+                  createdAt: new Date(),
+                  lastModified: new Date()
                 }
-              );
+              };
+
+              await setDoc(doc(db, "workouts", user.uid), workoutData, { merge: true });
 
               onCreated && onCreated(workoutId, name, description, exercises);
 

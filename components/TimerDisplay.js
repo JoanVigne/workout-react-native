@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { Ionicons } from '@expo/vector-icons';
-import { Audio } from 'expo-av';
+import { Audio } from 'expo-audio';
 
 const TimerDisplay = forwardRef((props, ref) => {
   const [isRunning, setIsRunning] = useState(false);
