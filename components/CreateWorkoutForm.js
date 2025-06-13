@@ -10,12 +10,13 @@ import {
   Keyboard,
   Pressable,
 } from "react-native";
-import { auth, db } from "../firebase";
-import { doc, setDoc } from "firebase/firestore";
+import { auth } from "../firebase";
 import CloseButton from "./ui/CloseButton";
 import ActionButton from "./ui/ActionButton";
+import { useUser } from "../context/UserContext";
 
 export default function CreateWorkoutForm({ visible, onCreated, onClose }) {
+  const { createWorkout, isOnline } = useUser();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [exercises, setExercises] = useState([]);
@@ -81,27 +82,38 @@ export default function CreateWorkoutForm({ visible, onCreated, onClose }) {
               if (!user) throw new Error("Utilisateur non connecté");
 
               const workoutData = {
-                [workoutId]: {
-                  id: workoutId,
-                  name,
-                  description,
-                  exercices: exercises,
-                  perf: {},
-                  createdAt: new Date(),
-                  lastModified: new Date()
-                }
+                name,
+                description,
+                exercices: exercises,
+                perf: {},
+                createdAt: new Date().toISOString(),
+                lastModified: new Date().toISOString()
               };
 
-              await setDoc(doc(db, "workouts", user.uid), workoutData, { merge: true });
+              // Utiliser la fonction createWorkout du UserContext qui gère le mode hors ligne
+              const success = await createWorkout(workoutId, workoutData);
 
-              onCreated && onCreated(workoutId, name, description, exercises);
+              if (success) {
+                onCreated && onCreated(workoutId, name, description, exercises);
 
-              Alert.alert("Succès", "Entraînement créé !");
-              setName("");
-              setDescription("");
-              setExercises([]);
-              setNewExercise("");
-              onClose && onClose();
+                // Message différent selon l'état de la connexion
+                if (!isOnline) {
+                  Alert.alert(
+                    "Enregistré localement", 
+                    "L'entraînement a été créé en mode hors ligne et sera synchronisé automatiquement lorsque vous serez connecté à Internet."
+                  );
+                } else {
+                  Alert.alert("Succès", "Entraînement créé !");
+                }
+                
+                setName("");
+                setDescription("");
+                setExercises([]);
+                setNewExercise("");
+                onClose && onClose();
+              } else {
+                Alert.alert("Erreur", "Impossible de créer l'entraînement. Veuillez réessayer.");
+              }
             } catch (err) {
               console.error("Erreur création entraînement :", err);
               Alert.alert("Erreur", err.message);
@@ -129,8 +141,16 @@ export default function CreateWorkoutForm({ visible, onCreated, onClose }) {
       visible={visible}
       onRequestClose={onClose}
     >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContainer}>
+      <TouchableOpacity 
+        style={styles.modalOverlay} 
+        activeOpacity={1} 
+        onPress={onClose}
+      >
+        <TouchableOpacity 
+          style={styles.modalContainer} 
+          activeOpacity={1} 
+          onPress={(e) => e.stopPropagation()}
+        >
           <CloseButton onPress={onClose} />
           <Text style={styles.label}>Nom de l'entraînement</Text>
           <TextInput
@@ -227,8 +247,8 @@ export default function CreateWorkoutForm({ visible, onCreated, onClose }) {
             onPress={handleCreateWorkout}
             variant="primary"
           />
-        </View>
-      </View>
+        </TouchableOpacity>
+      </TouchableOpacity>
     </Modal>
   );
 }

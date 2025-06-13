@@ -12,6 +12,7 @@ import {
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from '@expo/vector-icons';
 import ExerciseType from '../components/ExerciseType';
+import SyncIndicator from '../components/ui/SyncIndicator';
 import TimerDisplay from '../components/TimerDisplay';
 import { auth, db } from '../firebase';
 import { doc, updateDoc, getDoc } from 'firebase/firestore';
@@ -20,8 +21,10 @@ import CardioExercise from '../components/type_exercices/Cardio';
 import EtirementExercise from "../components/type_exercices/Etirement";
 import HiitExercise from "../components/type_exercices/Hiit";
 import MuscuExercise from "../components/type_exercices/Muscu";
+import ModifyWorkoutForm from "../components/ModifyWorkoutForm";
 export default function StartWorkoutScreen({ route, navigation }) {
   const [workout, setWorkout] = useState(route.params.workout);
+  const [showModifyForm, setShowModifyForm] = useState(false);
 
   // Convertir les dates en chaînes ISO pour éviter les problèmes de sérialisation
   useEffect(() => {
@@ -36,7 +39,7 @@ export default function StartWorkoutScreen({ route, navigation }) {
   const [exerciseData, setExerciseData] = useState({});
   const [noteHeights, setNoteHeights] = useState({});
   const timerRef = useRef();
-  const { setWorkouts } = useUser();
+  const { setWorkouts, saveWorkoutPerformance, isOnline } = useUser();
 
   // Check if there are any unsaved changes
   const hasUnsavedChanges = () => {
@@ -291,7 +294,17 @@ export default function StartWorkoutScreen({ route, navigation }) {
           <View style={styles.headerCenter}>
             <Text style={styles.title}>{workout.name}</Text>
           </View>
-          <View style={styles.headerRight} />
+          <View style={styles.headerRight}>
+            <View style={styles.headerRightContent}>
+              <SyncIndicator />
+              <TouchableOpacity
+                style={styles.editButton}
+                onPress={() => setShowModifyForm(true)}
+              >
+                <Ionicons name="pencil" size={20} color="#666" />
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
 
         {workout.exercices.map((exercise) => (
@@ -361,9 +374,8 @@ export default function StartWorkoutScreen({ route, navigation }) {
 
                       // Format the workout data
                       const today = new Date().toISOString().split('T')[0];
-                      const workoutRef = doc(db, 'workouts', user.uid);
                       
-                      // Create the update object with the old format
+                      // Create the formatted performance data
                       const formattedData = {};
                       
                       Object.entries(exerciseData).forEach(([exerciseId, data], index) => {
@@ -387,28 +399,20 @@ export default function StartWorkoutScreen({ route, navigation }) {
                         
                         formattedData[exerciseId] = exercisePerf;
                       });
+
+                      // Utiliser la fonction saveWorkoutPerformance du UserContext qui gère le mode hors ligne
+                      const success = await saveWorkoutPerformance(workout.id, formattedData, today);
                       
-                      const updateData = {
-                        [`${workout.id}.perf.${today}`]: formattedData
-                      };
+                      if (!success) {
+                        throw new Error("Erreur lors de la sauvegarde de l'entraînement");
+                      }
 
-                      // Save to Firebase
-                      await updateDoc(workoutRef, updateData);
-
-                      // Refresh context
-                      const workoutsDoc = await getDoc(doc(db, 'workouts', user.uid));
-                      if (workoutsDoc.exists()) {
-                        const data = workoutsDoc.data();
-                        const workoutList = Object.keys(data).map((key) => ({
-                          id: key,
-                          name: data[key].name || 'Sans nom',
-                          description: data[key].description || '',
-                          exercices: data[key].exercices || [],
-                          perf: data[key].perf || {},
-                          createdAt: data[key].createdAt,
-                          lastModified: data[key].lastModified
-                        }));
-                        setWorkouts(workoutList);
+                      // Afficher un message différent selon l'état de la connexion
+                      if (!isOnline) {
+                        Alert.alert(
+                          "Entraînement enregistré localement",
+                          "Votre entraînement a été sauvegardé en mode hors ligne et sera synchronisé automatiquement lorsque vous serez connecté à Internet."
+                        );
                       }
 
                       // Calculer les statistiques de l'entraînement
@@ -442,6 +446,17 @@ export default function StartWorkoutScreen({ route, navigation }) {
         </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Modal de modification du workout */}
+      <ModifyWorkoutForm
+        visible={showModifyForm}
+        workout={workout}
+        onModified={(updatedWorkout) => {
+          // Mettre à jour le workout localement
+          setWorkout(updatedWorkout);
+        }}
+        onClose={() => setShowModifyForm(false)}
+      />
     </View>
   );
 }
@@ -488,7 +503,18 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   headerRight: {
-    width: 50,
+    width: 80,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerRightContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  editButton: {
+    padding: 8,
   },
   title: {
     fontSize: 18,

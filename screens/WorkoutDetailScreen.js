@@ -8,6 +8,7 @@ import ModifyWorkoutForm from "../components/ModifyWorkoutForm";
 import PerformanceTable from "../components/PerformanceTable";
 import ExerciseType from "../components/ExerciseType";
 import { Ionicons } from '@expo/vector-icons';
+import SyncIndicator from "../components/ui/SyncIndicator";
 
 export default function WorkoutDetailScreen({ route }) {
   const { workout } = route.params;
@@ -83,7 +84,9 @@ export default function WorkoutDetailScreen({ route }) {
           <Text style={styles.headerTitle}>{workout.name}</Text>
           {workout.type && <ExerciseType type={workout.type} />}
         </View>
-        <View style={styles.backButtonPlaceholder} />
+        <View style={styles.syncIndicatorContainer}>
+          <SyncIndicator />
+        </View>
       </View>
 
       {/* Header Section */}
@@ -203,6 +206,11 @@ const styles = StyleSheet.create({
   },
   backButtonPlaceholder: {
     width: 40,
+  },
+  syncIndicatorContainer: {
+    width: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   titleContainer: {
     flex: 1,

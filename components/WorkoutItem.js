@@ -10,8 +10,6 @@ const WorkoutItem = ({ workout }) => {
     return null;
   }
 
-  console.log('Workout data:', JSON.stringify(workout, null, 2));
-
   const handleView = () => {
     navigation.navigate("WorkoutDetail", { workout });
   };
@@ -53,12 +51,10 @@ const styles = StyleSheet.create({
   workoutTitle: {
     fontSize: 18,
     fontWeight: "bold",
-    marginBottom: 5,
   },
   workoutDesc: {
     fontSize: 14,
     color: "#666",
-    marginBottom: 8,
   },
   exercisesList: {
     marginVertical: 8,
@@ -66,17 +62,17 @@ const styles = StyleSheet.create({
   exercisesTitle: {
     fontSize: 16,
     fontWeight: "600",
-    marginBottom: 4,
+    marginBottom: 2,
   },
   exerciseItem: {
     fontSize: 14,
     color: "#444",
-    marginLeft: 8,
+    marginLeft: 3,
   },
   buttonContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 10,
+    marginTop: 3,
   },
 });
 

@@ -14,6 +14,8 @@ import CreateWorkoutForm from "../components/CreateWorkoutForm";
 import UserOptionsModal from "../components/UserOptionsModal";
 import WorkoutItem from "../components/WorkoutItem";
 import Loading from "../components/ui/Loading";
+import NetworkStatus from "../components/ui/NetworkStatus";
+import SyncIndicator from "../components/ui/SyncIndicator";
 import { useUser } from "../context/UserContext";
 
 export default function HomeScreen({ navigation }) {
@@ -22,9 +24,6 @@ export default function HomeScreen({ navigation }) {
   const { user, nickname, workouts, setWorkouts, loading } = useUser();
 
   useEffect(() => {
-    console.log("HomeScreen - Current workouts:", workouts);
-    console.log("HomeScreen - Loading state:", loading);
-    console.log("HomeScreen - User:", user?.uid);
     if (!loading && !auth.currentUser) {
       navigation.replace("Login");
     }
@@ -48,7 +47,11 @@ export default function HomeScreen({ navigation }) {
   return (
     <View style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={styles.container}>
-        <View style={{ alignItems: "flex-end", marginBottom: 20 }}>
+        <View style={styles.headerContainer}>
+          {/* Indicateur de statut réseau */}
+          <NetworkStatus />
+          
+          {/* Bouton paramètres */}
           <TouchableOpacity onPress={() => setShowModal(true)}>
             <Image
               source={require("../assets/settings.png")}
@@ -102,17 +105,22 @@ const styles = StyleSheet.create({
     paddingBottom: 120,
     flexGrow: 1,
   },
+  headerContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
   loadingContainer: {
     marginVertical: 20,
   },
   noWorkoutsText: {
     textAlign: "center",
-    marginVertical: 20,
     color: "#666",
   },
 
-  title: { fontSize: 24, marginBottom: 15, textAlign: "center" },
-  subtitle: { fontSize: 18, marginBottom: 10 },
+  title: { fontSize: 27, marginBottom: 15, textAlign: "center" },
+  subtitle: { fontSize: 22, marginBottom: 10,textAlign: "center" },
   workoutItem: {
     backgroundColor: "#f0f0f0",
     padding: 10,
