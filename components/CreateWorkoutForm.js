@@ -9,6 +9,7 @@ import {
   Modal,
   Keyboard,
   Pressable,
+  ScrollView,
 } from "react-native";
 import { auth } from "../firebase";
 import CloseButton from "./ui/CloseButton";
@@ -20,9 +21,7 @@ export default function CreateWorkoutForm({ visible, onCreated, onClose }) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [exercises, setExercises] = useState([]);
-  const [newExercise, setNewExercise] = useState("");
-  const [exerciseType, setExerciseType] = useState("muscu");
-  const [showTypeMenu, setShowTypeMenu] = useState(null); // Pour le menu déroulant
+  const [showTypeMenu, setShowTypeMenu] = useState(null); // Key: 'index' or 'index-altIndex'
 
   const exerciseTypes = [
     { id: 'muscu', label: '💪 Muscu' },
@@ -32,30 +31,69 @@ export default function CreateWorkoutForm({ visible, onCreated, onClose }) {
     { id: 'poids', label: '⚖️ Poids libre' }
   ];
 
-  const exerciseInputRef = useRef(null);
-
   const handleAddExercise = () => {
-    if (!newExercise.trim()) return;
-
-    const exerciseId = `${newExercise
-      .trim()
-      .toLowerCase()
-      .replace(/\s+/g, "_")}_${Date.now()}`;
-
+    const exerciseId = `exercise_${Date.now()}`;
     setExercises((prev) => [
       ...prev,
       { 
         id: exerciseId, 
-        name: newExercise.trim(),
-        type: exerciseType // Ajout du type d'exercice
+        name: "",
+        type: 'muscu',
+        alternatives: []
       },
     ]);
+  };
 
-    setNewExercise("");
-    Keyboard.dismiss();
+  const handleUpdateExercise = (index, field, value) => {
+    setExercises(prev => {
+        const updated = [...prev];
+        updated[index] = { ...updated[index], [field]: value };
+        return updated;
+    });
+  };
+
+  const handleRemoveExercise = (index) => {
+    setExercises(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleAddAlternativeExercise = (exerciseIndex) => {
+    setExercises(prev => {
+      const updated = [...prev];
+      const exercise = updated[exerciseIndex];
+      if (!exercise.alternatives) {
+        exercise.alternatives = [];
+      }
+      const alternativeId = `alt_${Date.now()}`;
+      exercise.alternatives.push({
+        id: alternativeId,
+        name: '',
+        type: 'muscu'
+      });
+      return updated;
+    });
+  };
+
+  const handleUpdateAlternativeExercise = (exerciseIndex, altIndex, field, value) => {
+    setExercises(prev => {
+      const updated = [...prev];
+      updated[exerciseIndex].alternatives[altIndex] = {
+        ...updated[exerciseIndex].alternatives[altIndex],
+        [field]: value
+      };
+      return updated;
+    });
+  };
+
+  const handleRemoveAlternativeExercise = (exerciseIndex, altIndex) => {
+    setExercises(prev => {
+      const updated = [...prev];
+      updated[exerciseIndex].alternatives.splice(altIndex, 1);
+      return updated;
+    });
   };
 
   const handleCreateWorkout = () => {
+ 
     Alert.alert(
       "Confirmation",
       "Êtes-vous sûr de vouloir créer cet entraînement ?",
@@ -77,6 +115,13 @@ export default function CreateWorkoutForm({ visible, onCreated, onClose }) {
               .toLowerCase()
               .replace(/\s+/g, "_")}_${Date.now()}`;
 
+            const finalExercises = exercises
+              .map(ex => ({
+                ...ex,
+                alternatives: (ex.alternatives || []).filter(alt => alt.name.trim() !== '')
+              }))
+              .filter(ex => ex.name.trim() !== '');
+
             try {
               const user = auth.currentUser;
               if (!user) throw new Error("Utilisateur non connecté");
@@ -84,23 +129,21 @@ export default function CreateWorkoutForm({ visible, onCreated, onClose }) {
               const workoutData = {
                 name,
                 description,
-                exercices: exercises,
+                exercices: finalExercises,
                 perf: {},
                 createdAt: new Date().toISOString(),
                 lastModified: new Date().toISOString()
               };
 
-              // Utiliser la fonction createWorkout du UserContext qui gère le mode hors ligne
               const success = await createWorkout(workoutId, workoutData);
 
               if (success) {
-                onCreated && onCreated(workoutId, name, description, exercises);
+                onCreated && onCreated(workoutId, name, description, finalExercises);
 
-                // Message différent selon l'état de la connexion
                 if (!isOnline) {
                   Alert.alert(
                     "Enregistré localement", 
-                    "L'entraînement a été créé en mode hors ligne et sera synchronisé automatiquement lorsque vous serez connecté à Internet."
+                    "L'entraînement a été créé en mode hors ligne et sera synchronisé automatiquement."
                   );
                 } else {
                   Alert.alert("Succès", "Entraînement créé !");
@@ -109,7 +152,6 @@ export default function CreateWorkoutForm({ visible, onCreated, onClose }) {
                 setName("");
                 setDescription("");
                 setExercises([]);
-                setNewExercise("");
                 onClose && onClose();
               } else {
                 Alert.alert("Erreur", "Impossible de créer l'entraînement. Veuillez réessayer.");
@@ -151,7 +193,8 @@ export default function CreateWorkoutForm({ visible, onCreated, onClose }) {
           activeOpacity={1} 
           onPress={(e) => e.stopPropagation()}
         >
-          <CloseButton onPress={onClose} />
+          <ScrollView>
+            <CloseButton onPress={onClose} />
           <Text style={styles.label}>Nom de l'entraînement</Text>
           <TextInput
             style={styles.input}
@@ -169,84 +212,129 @@ export default function CreateWorkoutForm({ visible, onCreated, onClose }) {
           />
 
           <Text style={styles.label}>Exercices</Text>
-          <View style={styles.exerciseInputRow}>
-            <TextInput
-              ref={exerciseInputRef}
-              style={[styles.input, { flex: 1, marginRight: 10 }]}
-              placeholder="Ajouter un exercice"
-              value={newExercise}
-              onChangeText={setNewExercise}
-              onSubmitEditing={handleAddExercise}
-              returnKeyType="done"
-            />
-            <TouchableOpacity
-              onPress={handleAddExercise}
-              style={styles.addButton}
-            >
-              <Text style={styles.addButtonText}>＋</Text>
-            </TouchableOpacity>
-          </View>
-
-          {exercises.map((item, index) => (
-            <View key={`${item.id}_${index}`} style={styles.exerciseItemRow}>
-              <Pressable 
-                style={styles.typeSelector}
-                onPress={() => setShowTypeMenu(showTypeMenu === index ? null : index)}
-              >
-                <Text>{exerciseTypes.find(t => t.id === item.type)?.label || '💪 Muscu'}</Text>
-              </Pressable>
-
-              {showTypeMenu === index && (
-                <View style={styles.typeMenu}>
-                  {exerciseTypes.map((type) => (
-                    <Pressable
-                      key={type.id}
-                      style={styles.typeMenuItem}
-                      onPress={() => {
-                        setExercises(prev => prev.map((ex, i) => 
-                          i === index ? { ...ex, type: type.id } : ex
-                        ));
-                        setShowTypeMenu(null);
-                      }}
+          {exercises.map((item, index) => {
+            const mainTypeMenuKey = `${index}`;
+            return (
+            <View key={item.id} style={styles.exerciseItemContainer}>
+              <View style={styles.exerciseItemRow}>
+                <Text style={styles.exerciseIndex}>{index + 1}.</Text>
+                <TextInput
+                  style={[styles.input, styles.exerciseInput]}
+                  placeholder="Nom exercice"
+                  value={item.name}
+                  onChangeText={(text) => handleUpdateExercise(index, 'name', text)}
+                />
+                <TouchableOpacity onPress={() => handleRemoveExercise(index)} style={styles.removeButton}>
+                  <Text style={styles.removeButtonText}>-</Text>
+                </TouchableOpacity>
+                <View style={styles.arrows}>
+                  {index > 0 && (
+                    <TouchableOpacity
+                      onPress={() => moveExercise(index, index - 1)}
+                      style={styles.arrowButton}
                     >
-                      <Text style={[styles.typeMenuText, item.type === type.id && styles.typeMenuTextSelected]}>
-                        {type.label}
-                      </Text>
-                    </Pressable>
-                  ))}
+                      <Text style={styles.arrow}>↑</Text>
+                    </TouchableOpacity>
+                  )}
+                  {index < exercises.length - 1 && (
+                    <TouchableOpacity
+                      onPress={() => moveExercise(index, index + 1)}
+                      style={styles.arrowButton}
+                    >
+                      <Text style={styles.arrow}>↓</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
-              )}
-
-              <Text style={styles.exerciseItemText}>
-                {index + 1}. {item.name}
-              </Text>
-
-              <View style={styles.arrows}>
-                {index > 0 && (
-                  <TouchableOpacity
-                    onPress={() => moveExercise(index, index - 1)}
-                    style={styles.arrowButton}
-                  >
-                    <Text style={styles.arrow}>↑</Text>
-                  </TouchableOpacity>
-                )}
-                {index < exercises.length - 1 && (
-                  <TouchableOpacity
-                    onPress={() => moveExercise(index, index + 1)}
-                    style={styles.arrowButton}
-                  >
-                    <Text style={styles.arrow}>↓</Text>
-                  </TouchableOpacity>
-                )}
               </View>
+              <View style={styles.exerciseOptionsRow}>
+                <Pressable 
+                  style={styles.typeSelector}
+                  onPress={() => setShowTypeMenu(showTypeMenu === mainTypeMenuKey ? null : mainTypeMenuKey)}
+                >
+                  <Text>{exerciseTypes.find(t => t.id === item.type)?.label || '💪 Muscu'}</Text>
+                </Pressable>
+
+                {showTypeMenu === mainTypeMenuKey && (
+                  <View style={styles.typeMenu}>
+                    {exerciseTypes.map((type) => (
+                      <Pressable
+                        key={type.id}
+                        style={styles.typeMenuItem}
+                        onPress={() => {
+                          handleUpdateExercise(index, 'type', type.id);
+                          setShowTypeMenu(null);
+                        }}
+                      >
+                        <Text style={[styles.typeMenuText, item.type === type.id && styles.typeMenuTextSelected]}>
+                          {type.label}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                )}
+
+                <TouchableOpacity style={styles.altExerciseButton} onPress={() => handleAddAlternativeExercise(index)}>
+                  <Text style={styles.altExerciseButtonText}>+ Exo alternatif</Text>
+                </TouchableOpacity>
+              </View>
+
+              {(item.alternatives || []).map((altItem, altIndex) => {
+                const altTypeMenuKey = `${index}-${altIndex}`;
+                return (
+                  <View key={altItem.id} style={styles.altExerciseContainer}>
+                    <View style={styles.altExerciseRow}>
+                      <TextInput
+                        style={[styles.input, styles.exerciseInput]}
+                        placeholder="Nom exercice alternatif"
+                        value={altItem.name}
+                        onChangeText={(text) => handleUpdateAlternativeExercise(index, altIndex, 'name', text)}
+                      />
+                      <TouchableOpacity onPress={() => handleRemoveAlternativeExercise(index, altIndex)} style={styles.altRemoveButton}>
+                        <Text style={styles.altRemoveButtonText}>×</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <View style={styles.altExerciseOptionsRow}>
+                      <Pressable 
+                        style={styles.typeSelector}
+                        onPress={() => setShowTypeMenu(showTypeMenu === altTypeMenuKey ? null : altTypeMenuKey)}
+                      >
+                        <Text>{exerciseTypes.find(t => t.id === altItem.type)?.label || '💪 Muscu'}</Text>
+                      </Pressable>
+                      {showTypeMenu === altTypeMenuKey && (
+                        <View style={styles.typeMenu}>
+                          {exerciseTypes.map((type) => (
+                            <Pressable
+                              key={type.id}
+                              style={styles.typeMenuItem}
+                              onPress={() => {
+                                handleUpdateAlternativeExercise(index, altIndex, 'type', type.id);
+                                setShowTypeMenu(null);
+                              }}
+                            >
+                              <Text style={[styles.typeMenuText, altItem.type === type.id && styles.typeMenuTextSelected]}>
+                                {type.label}
+                              </Text>
+                            </Pressable>
+                          ))}
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                )
+              })}
             </View>
-          ))}
+          )})}
+
+          <TouchableOpacity onPress={handleAddExercise} style={styles.addButton}>
+            <Text style={styles.addButtonText}>＋ Ajouter un exercice</Text>
+          </TouchableOpacity>
 
           <ActionButton
             title="Créer"
             onPress={handleCreateWorkout}
             variant="primary"
           />
+          </ScrollView>
         </TouchableOpacity>
       </TouchableOpacity>
     </Modal>
@@ -256,14 +344,15 @@ const styles = StyleSheet.create({
   typeSelector: {
     backgroundColor: '#f0f0f0',
     paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingVertical: 2,
     borderRadius: 15,
     marginRight: 10,
     minWidth: 100,
+    alignItems: 'center',
   },
   typeMenu: {
     position: 'absolute',
-    left: 0,
+    left: 0, 
     top: '100%',
     backgroundColor: 'white',
     borderRadius: 10,
@@ -288,34 +377,9 @@ const styles = StyleSheet.create({
     color: '#007AFF',
     fontWeight: 'bold',
   },
-  typeContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginVertical: 10,
-    paddingHorizontal: 20,
-  },
-  typeButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 20,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    backgroundColor: '#fff',
-  },
-  typeButtonActive: {
-    backgroundColor: '#007AFF',
-    borderColor: '#007AFF',
-  },
-  typeText: {
-    color: '#666',
-    fontSize: 14,
-  },
-  typeTextActive: {
-    color: '#fff',
-  },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)", // foncé derrière
+    backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -339,35 +403,95 @@ const styles = StyleSheet.create({
     borderColor: "#ddd",
     borderRadius: 8,
     padding: 10,
-    marginBottom: 12,
+    marginBottom: 0,
   },
-  exerciseInputRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 10,
+  exerciseInput: {
+    flex: 1,
+    marginRight: 10,
   },
   addButton: {
-    backgroundColor: "#28a745",
-    paddingVertical: 2,
-    paddingHorizontal: 5,
+    backgroundColor: "#007AFF",
+    padding: 12,
     borderRadius: 8,
-    marginBottom: 10,
+    alignItems: 'center',
+    marginTop: 10,
+    marginBottom: 20,
   },
   addButtonText: {
-    alignItems: "center",
-    fontSize: 22,
+    fontSize: 15,
     color: "#fff",
+    fontWeight: 'bold',
+  },
+  exerciseItemContainer: {
+    marginBottom: 15,
   },
   exerciseItemRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 15,
-    paddingLeft: 8,
+    marginBottom: 8,
   },
-  exerciseItemText: {
+  exerciseIndex: {
+    marginRight: 8,
     fontSize: 16,
-    flex: 1,
+    fontWeight: 'bold',
+  },
+  exerciseOptionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingLeft: 25,
+    position: 'relative',
+  },
+  altExerciseContainer: {
+    marginTop: 10,
+    marginLeft: 30, // Indent alternative exercises
+    borderLeftWidth: 2,
+    borderLeftColor: '#e0e0e0',
+    paddingLeft: 10,
+  },
+  altExerciseRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  altExerciseOptionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  altExerciseButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 2,
+  },
+  altExerciseButtonText: {
+    color: '#007AFF',
+    fontWeight: '500',
+  },
+  removeButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: '#ff4d4d',
+    borderRadius: 5,
+    marginRight: 5,
+  },
+  removeButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  altRemoveButton: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#ff4d4d',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 5,
+  },
+  altRemoveButtonText: {
+    color: '#fff',
+    fontSize: 18,
+    lineHeight: 20, // Centrage vertical
   },
   arrows: {
     flexDirection: "row",

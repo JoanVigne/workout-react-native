@@ -30,18 +30,9 @@ export default function HomeScreen({ navigation }) {
   }, [workouts, loading, user, navigation]);
 
   const handleWorkoutCreated = (workoutId, workoutName, workoutDescription, exercices) => {
-    const newWorkout = {
-      id: workoutId,
-      name: workoutName,
-      description: workoutDescription || "Aucune description",
-      exercices: exercices || [],
-    };
-
-    // Mise à jour de l'état local
-    setWorkouts((prevWorkouts) => {
-      const updatedWorkouts = [...prevWorkouts, newWorkout];
-      return updatedWorkouts;
-    });
+    // Le contexte utilisateur (useUser) se charge déjà de mettre à jour la liste des entraînements.
+    // Cette fonction est conservée pour la prop `onCreated` mais n'a plus besoin de modifier l'état localement.
+    console.log(`Workout ${workoutName} créé avec succès.`);
   };
 
   return (

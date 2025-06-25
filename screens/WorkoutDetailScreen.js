@@ -151,6 +151,19 @@ export default function WorkoutDetailScreen({ route }) {
                   {exercise.description}
                 </Text>
               )}
+              {Array.isArray(exercise.alternatives) &&
+                exercise.alternatives.length > 0 && (
+                  <View style={styles.alternativesContainer}>
+                    {exercise.alternatives.map((alt) => (
+                      <View key={alt.id} style={styles.alternativeItem}>
+                        <Text style={styles.alternativeText}>
+                          alt: {alt.name}
+                        </Text>
+                        {alt.type && <ExerciseType type={alt.type} />}
+                      </View>
+                    ))}
+                  </View>
+                )}
             </View>
           ))
         ) : (
@@ -296,6 +309,26 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#666",
     fontStyle: "italic",
+  },
+  alternativesContainer: {
+    marginTop: 8,
+    marginLeft: 15,
+    paddingLeft: 10,
+    borderLeftWidth: 2,
+    borderLeftColor: '#e0e0e0',
+  },
+  alternativeItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 2,
+  },
+  alternativeText: {
+    fontSize: 15,
+    color: '#555',
+    fontStyle: 'italic',
+    flex: 1,
+    marginRight: 10,
   },
   noExercises: {
     fontSize: 16,
